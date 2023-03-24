@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
-	"sort"
 )
 
 // Condition constants define how to compare a vector clock against another,
@@ -122,7 +121,7 @@ func (vc VClock) ReturnVCString() string {
 		i++
 	}
 
-	sort.Strings(ids)
+	//sort.Strings(ids)
 
 	var buffer bytes.Buffer
 	buffer.WriteString("{")

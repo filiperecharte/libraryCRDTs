@@ -8,7 +8,7 @@ type Event struct {
 	Value     interface{} // CRDT-specific operation submitted by user
 	Version   VClock      // vector clock kept for keeping causal order
 	Timestamp time.Time   // wall clock timestamp - useful for LWW and total ordering in case of concurrent versions
-	Origin    ReplicaID   // replica which originally generated an event
+	Origin    string      // replica which originally generated an event
 }
 
 // CompareTo compares two events based on their version and timestamp.

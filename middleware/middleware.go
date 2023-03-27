@@ -109,7 +109,7 @@ func (mw *Middleware) deliver() {
 			msg := mw.DQ[from]
 			if msg.Version[msg.OriginID] == mw.DeliveredVersion[msg.OriginID]+1 && allCausalPredecessorsDelivered(msg.Version, mw.DeliveredVersion, msg.OriginID) {
 				mw.DeliveredVersion[msg.OriginID]++
-				mw.DeliverCausal <- msg
+				mw.DeliverCausal <- NewMessage(DLV, msg.Value, msg.Version, msg.OriginID)
 			} else {
 				mw.DQ[from] = mw.DQ[to]
 				to++

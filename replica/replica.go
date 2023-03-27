@@ -42,7 +42,7 @@ func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{},
 // and enqueuing the message with the updated version vector to the middleware process.
 func (r *Replica) TCBcast(op interface{}) {
 	r.VersionVector[r.ID]++
-	msg := middleware.NewMessage(op, r.VersionVector.Copy(), r.ID)
+	msg := middleware.NewMessage(middleware.DLV, op, r.VersionVector.Copy(), r.ID)
 	r.TCDeliver(msg)
 	r.Middleware.Tcbcast <- msg
 }
@@ -52,14 +52,23 @@ func (r *Replica) TCBcast(op interface{}) {
 func (r *Replica) dequeue() {
 	for {
 		msg := <-r.Middleware.DeliverCausal
-		r.VersionVector[msg.OriginID] = msg.Version[msg.OriginID]
-		r.TCDeliver(msg)
+		if msg.Type == middleware.DLV {
+			r.VersionVector[msg.OriginID] = msg.Version[msg.OriginID]
+			r.TCDeliver(msg)
+		} else if msg.Type == middleware.STB {
+			r.TCDeliver(msg)
+		}
 	}
 }
 
 // The TCDeliver callback function is called when a message is ready to be delivered.
 func (r *Replica) TCDeliver(msg middleware.Message) {
 	r.Unstable = append(r.Unstable, msg.Value)
+}
+
+// The TCStable callback function is called when a message is set to stable.
+func (r *Replica) TCStable(msg middleware.Message) {
+	/* do things */
 }
 
 // Update made by a client to a replica that receives the operation to be applied to the CRDT

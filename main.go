@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"library/packages/middleware"
 	"library/packages/replica"
 	"os"
 	"strconv"
@@ -26,18 +25,16 @@ func (c Counter) Apply(s interface{}, ops []interface{}) interface{} {
 
 func main() {
 
+	var channels = map[string]chan interface{}{
+		"1": make(chan interface{}),
+		"2": make(chan interface{}),
+		"3": make(chan interface{}),
+	}
+
 	// create Replicas and assign CRDT
-	replica1 := replica.NewReplica("1", []string{"1", "2", "3"}, Counter{})
-	replica2 := replica.NewReplica("2", []string{"1", "2", "3"}, Counter{})
-	replica3 := replica.NewReplica("3", []string{"1", "2", "3"}, Counter{})
-
-	// create array with middlewares of replicas
-	middlewares := []middleware.Middleware{*replica1.Middleware, *replica2.Middleware, *replica3.Middleware}
-
-	// assign middleares array to each replica middlware middlewares
-	replica1.Middleware.Middlewares = middlewares
-	replica2.Middleware.Middlewares = middlewares
-	replica3.Middleware.Middlewares = middlewares
+	replica1 := replica.NewReplica("1", Counter{}, channels, true)
+	replica2 := replica.NewReplica("2", Counter{}, channels, false)
+	replica3 := replica.NewReplica("3", Counter{}, channels, false)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {

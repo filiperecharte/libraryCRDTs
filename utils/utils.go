@@ -9,3 +9,12 @@ func MessagesToValues(l []interface{}) []interface{} {
 	}
 	return list
 }
+
+// get string keys from a map
+func MapToKeys(m map[string]chan interface{}) []string {
+	var list []string
+	for obj, _ := range m {
+		list = append(list, obj)
+	}
+	return list
+}

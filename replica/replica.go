@@ -11,23 +11,25 @@ import (
 
 type Replica struct {
 	ID            string
-	replicaIDS    []string
+	replicas      map[string]chan interface{}
 	Crdt          crdt.Crdt
 	State         interface{}
-	Unstable      []interface{} // Event operations waiting to stabilize
+	Unstable      []interface{} // operations waiting to stabilize
 	Middleware    *middleware.Middleware
 	VersionVector middleware.VClock
 }
 
-func NewReplica(id string, ids []string, crdt crdt.Crdt) *Replica {
+func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{}, delay bool) *Replica {
 	//initialize replica state
+
+	ids := utils.MapToKeys(channels)
 
 	r := &Replica{
 		ID:            id,
-		replicaIDS:    ids,
+		replicas:      channels,
 		Crdt:          crdt,
 		State:         crdt.Default(),
-		Middleware:    middleware.NewMiddleware(id, ids, len(ids)),
+		Middleware:    middleware.NewMiddleware(id, ids, channels, delay),
 		VersionVector: middleware.InitVClock(ids, uint64(len(ids))), //delivered version vector
 	}
 
@@ -38,10 +40,11 @@ func NewReplica(id string, ids []string, crdt crdt.Crdt) *Replica {
 
 // Broadcasts a message by incrementing the replica's own entry in the version vector
 // and enqueuing the message with the updated version vector to the middleware process.
-func (r *Replica) TCBcast(msg interface{}) {
+func (r *Replica) TCBcast(op interface{}) {
 	r.VersionVector[r.ID]++
-	payload := *middleware.NewMessage(msg, r.VersionVector, r.ID)
-	r.Middleware.Tcbcast <- payload
+	msg := middleware.NewMessage(op, r.VersionVector.Copy(), r.ID)
+	r.TCDeliver(msg)
+	r.Middleware.Tcbcast <- msg
 }
 
 // Dequeues a message that is ready to be delivered to the replica process.
@@ -56,8 +59,7 @@ func (r *Replica) dequeue() {
 
 // The TCDeliver callback function is called when a message is ready to be delivered.
 func (r *Replica) TCDeliver(msg middleware.Message) {
-	fmt.Println("Delivered message to replica", r.ID)
-	r.Unstable = append(r.Unstable, msg)
+	r.Unstable = append(r.Unstable, msg.Value)
 }
 
 // Update made by a client to a replica that receives the operation to be applied to the CRDT
@@ -69,5 +71,6 @@ func (r *Replica) Update(op interface{}) {
 // Query made by a client to a replica that returns the current state of the CRDT
 // after applying the unstable operations into the CRDT stable state
 func (r *Replica) Query() interface{} {
-	return r.Crdt.Apply(r.State, utils.MessagesToValues(r.Unstable))
+	fmt.Println("Querying replica", r.ID, "with unstable operations", r.Unstable)
+	return r.Crdt.Apply(r.State, r.Unstable)
 }

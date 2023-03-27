@@ -1,32 +1,42 @@
 package middleware
 
+import (
+	"fmt"
+	"time"
+)
+
 type Middleware struct {
 	replica          string
-	replicas         []string
-	Middlewares      []Middleware
+	channels         map[string]chan interface{}
 	DeliveredVersion VClock // last delivered vector clock
 	ReceivedVersion  VClock // last received vector clock
 	Tcbcast          chan Message
 	DeliverCausal    chan Message
 	DQ               []Message
+	Delay            bool
 	//Unstable      map[interface{}]struct{} // Event operations waiting to stabilize
 	//Observed      VClocks                  // vector versions of observed universe
 }
 
 // creates middleware state
-func NewMiddleware(id string, ids []string, groupSize int) *Middleware {
+func NewMiddleware(id string, ids []string, channels map[string]chan interface{}, delay bool) *Middleware {
+
+	groupSize := len(ids)
+
 	mw := &Middleware{
 		replica:          id,
-		replicas:         ids,
+		channels:         channels,
 		DeliveredVersion: InitVClock(ids, uint64(groupSize)),
 		ReceivedVersion:  InitVClock(ids, uint64(groupSize)),
 		Tcbcast:          make(chan Message),
 		DeliverCausal:    make(chan Message),
+		Delay:            delay,
 		//Unstable:       make(map[interface{}]struct{}),
 		//Observed:       make(VClocks),
 	}
 
 	go mw.dequeue()
+	go mw.receive()
 
 	return mw
 }
@@ -44,22 +54,39 @@ func (mw *Middleware) dequeue() {
 // broadcasts a received message to other middlewares
 // for testing purposes we will just call receive with the ids of the other middlewares
 func (mw *Middleware) broadcast(msg Message) {
-	for _, md := range mw.Middlewares {
-		if md.replica != mw.replica {
-			md.receive(mw.replica, msg)
+	for id, ch := range mw.channels {
+		if mw.replica != id {
+			go func(newCh chan interface{}) { newCh <- msg }(ch)
 		}
 	}
 }
 
-func (mw *Middleware) receive(j string, m Message) {
-	V_m := m.Version
-	if mw.ReceivedVersion[j] < V_m[j] {
-		mw.ReceivedVersion.Tick(j)
-		if V_m[j] == mw.DeliveredVersion[j]+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
-			mw.DeliverCausal <- *NewMessage(m, V_m, j)
-			go mw.deliver()
-		} else {
-			mw.DQ = append(mw.DQ, m)
+func (mw *Middleware) receive() {
+
+	for {
+		m1 := <-mw.channels[mw.replica]
+		m := m1.(Message)
+
+		if mw.Delay && m.OriginID == "3" {
+			fmt.Println(mw.replica, "delaying: ", m)
+			time.Sleep(10 * time.Second)
+			go func() { mw.channels[mw.replica] <- m }()
+			mw.Delay = false
+			continue
+		}
+
+		V_m := m.Version
+		j := m.OriginID
+
+		if mw.ReceivedVersion[j] < V_m[j] { // messages from the same replica cannot be delivered out of order otherwise they are ignored
+			mw.ReceivedVersion.Tick(j)
+			if V_m[j] == mw.DeliveredVersion[j]+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
+				mw.DeliveredVersion[j]++
+				mw.DeliverCausal <- m
+				mw.deliver()
+			} else {
+				mw.DQ = append(mw.DQ, m)
+			}
 		}
 	}
 }
@@ -131,33 +158,4 @@ func (m Middleware) String() string {
 		"LatestVersion: " + m.LatestVersion.ReturnVCString() + "\n"
 }
 
-//-------------------- Protocol --------------------//
-
-// SUBMIT operation that creates a new event with an incremented version, adds the event to unstable state
-// and sends it to all replicas.
-func (m *Middleware) Update(replicaID string, state *Middleware, operation interface{}) {
-	// increment version
-	state.LatestVersion.Tick(replicaID)
-
-	//increment observed version
-	state.Observed.Update(replicaID, state.LatestVersion)
-
-	//creates an event
-	event := new(Event)
-	event.Origin = replicaID
-	event.Version = state.LatestVersion
-	event.Timestamp = time.Now()
-	event.Value = operation
-
-	// add event to unstable state
-	state.Unstable[event] = struct{}{}
-
-	// broadcast event to all replicas
-	// TODO
-
-	// call stabilize to see if there are any stable operations?
-
-	// do the previous two steps concurrently
-	// TODO
-}
 */

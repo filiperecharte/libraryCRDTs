@@ -7,8 +7,8 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the given value and version vector
-func NewMessage(value interface{}, version VClock, originID string) *Message {
-	return &Message{
+func NewMessage(value interface{}, version VClock, originID string) Message {
+	return Message{
 		Value:    value,
 		Version:  version,
 		OriginID: originID,

@@ -32,8 +32,19 @@ func (vc VClock) FindTicks(id string) (uint64, bool) {
 }
 
 // New returns a new vector clock
-func New() VClock {
+func NewVClock() VClock {
 	return VClock{}
+}
+
+func InitVClock(id []string, size uint64) VClock {
+	vc := NewVClock()
+	if size != uint64(len(id)) {
+		log.Fatal("Size of id and size of clock do not match")
+	}
+	for _, i := range id {
+		vc[i] = 0
+	}
+	return vc
 }
 
 // Copy returns a copy of the clock
@@ -100,7 +111,7 @@ func (vc VClock) Bytes() []byte {
 func FromBytes(data []byte) (vc VClock, err error) {
 	b := new(bytes.Buffer)
 	b.Write(data)
-	clock := New()
+	clock := NewVClock()
 	dec := gob.NewDecoder(b)
 	err = dec.Decode(&clock)
 	return clock, err

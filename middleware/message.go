@@ -29,6 +29,11 @@ func (e *Message) CompareTo(other *Message) Condition {
 	return e.Version.Compare(other.Version)
 }
 
+// set type of message
+func (e *Message) SetType(tp int) {
+	e.Type = tp
+}
+
 // Check if two messages are equal by comparing their version, value, timestamp and origin
 func (e *Message) Equals(other *Message) bool {
 	return e.Version.Compare(other.Version) == Equal && e.Value == other.Value &&

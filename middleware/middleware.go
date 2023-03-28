@@ -2,20 +2,35 @@ package middleware
 
 import (
 	"fmt"
-	"time"
+	"library/packages/utils"
+	"sort"
 )
+
+type StableDotKey struct {
+	id string
+	Vm uint64
+}
+
+type StableDotValue struct {
+	msg Message
+	ctr uint64
+}
 
 type Middleware struct {
 	replica          string
 	channels         map[string]chan interface{}
+	groupSize        int
 	DeliveredVersion VClock // last delivered vector clock
 	ReceivedVersion  VClock // last received vector clock
 	Tcbcast          chan Message
 	DeliverCausal    chan Message
 	DQ               []Message
 	Delay            bool
-	//Unstable      map[interface{}]struct{} // Event operations waiting to stabilize
-	//Observed      VClocks                  // vector versions of observed universe
+	Observed         VClocks // vector versions of observed universe
+	StableVersion    VClock
+	SMap             map[StableDotKey]StableDotValue // messages delivered but not yet stable (stable dots)
+	Min              map[string]string
+	Ctr              uint64
 }
 
 // creates middleware state
@@ -26,13 +41,17 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 	mw := &Middleware{
 		replica:          id,
 		channels:         channels,
-		DeliveredVersion: InitVClock(ids, uint64(groupSize)),
-		ReceivedVersion:  InitVClock(ids, uint64(groupSize)),
+		groupSize:        groupSize,
+		DeliveredVersion: InitVClock(ids),
+		ReceivedVersion:  InitVClock(ids),
 		Tcbcast:          make(chan Message),
 		DeliverCausal:    make(chan Message),
 		Delay:            delay,
-		//Unstable:       make(map[interface{}]struct{}),
-		//Observed:       make(VClocks),
+		Observed:         InitVClocks(ids),
+		StableVersion:    InitVClock(ids),
+		SMap:             make(map[StableDotKey]StableDotValue),
+		Min:              utils.InitMin(ids),
+		Ctr:              0,
 	}
 
 	go mw.dequeue()
@@ -46,6 +65,7 @@ func (mw *Middleware) dequeue() {
 	for {
 		msg := <-mw.Tcbcast
 		mw.DeliveredVersion.Tick(mw.replica)
+		mw.updatestability(msg)
 		mw.broadcast(msg)
 	}
 }
@@ -67,13 +87,13 @@ func (mw *Middleware) receive() {
 		m1 := <-mw.channels[mw.replica]
 		m := m1.(Message)
 
-		if mw.Delay && m.OriginID == "3" {
+		/*if mw.Delay && m.OriginID == "3" {
 			fmt.Println(mw.replica, "delaying: ", m)
 			time.Sleep(10 * time.Second)
 			go func() { mw.channels[mw.replica] <- m }()
 			mw.Delay = false
 			continue
-		}
+		}*/
 
 		V_m := m.Version
 		j := m.OriginID
@@ -83,6 +103,7 @@ func (mw *Middleware) receive() {
 			if V_m[j] == mw.DeliveredVersion[j]+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
 				mw.DeliveredVersion[j]++
 				mw.DeliverCausal <- m
+				mw.updatestability(m)
 				mw.deliver()
 			} else {
 				mw.DQ = append(mw.DQ, m)
@@ -128,34 +149,62 @@ func allCausalPredecessorsDelivered(V_m, V_i VClock, j string) bool {
 	return true
 }
 
-/*
-func (m *Middleware) stabilize() (stable map[interface{}]struct{}, stableVClock VClock) {
-	stableVClock = m.Observed.Common()
-	stable = make(map[interface{}]struct{})
-	unstable := make(map[interface{}]struct{})
-
-	for op, _ := range m.Unstable {
-		cmp := op.(Event).Version.Compare(stableVClock)
-		if cmp == Equal || cmp == Ancestor {
-			stable[op] = struct{}{}
-		} else {
-			unstable[op] = struct{}{}
+func (mw *Middleware) updatestability(msg Message) {
+	mw.Observed[mw.replica] = mw.DeliveredVersion
+	if mw.replica != msg.OriginID {
+		mw.Observed[msg.OriginID] = msg.Version
+	}
+	mw.Ctr++
+	mw.SMap[StableDotKey{msg.OriginID, msg.Version[msg.OriginID]}] = StableDotValue{msg, mw.Ctr}
+	if _, ok := mw.Min[msg.OriginID]; ok {
+		var NewStableVersion = mw.calculateStableVersion(msg.OriginID)
+		if NewStableVersion.Compare(mw.StableVersion) != Equal {
+			StableDots := NewStableVersion.Subtract(mw.StableVersion)
+			mw.stabilize(StableDots)
+			mw.StableVersion = NewStableVersion.Copy()
 		}
 	}
-
-	// delete stable operations from unstable state
-	m.Unstable = unstable
-
-	//return stable operations to replica
-	return
 }
 
-// prints middleware state
-func (m Middleware) String() string {
-	//improve string representation
-	// TODO
-	return "StableVersion: " + m.StableVersion.ReturnVCString() + "\n" +
-		"LatestVersion: " + m.LatestVersion.ReturnVCString() + "\n"
+func (mw *Middleware) stabilize(StableDots VClock) {
+	var L []StableDotValue
+	for k, _ := range StableDots {
+		if _, ok := mw.SMap[StableDotKey{k, StableDots[k]}]; ok {
+			L = append(L, mw.SMap[StableDotKey{k, StableDots[k]}])
+		}
+	}
+	sort.Slice(L, func(i, j int) bool {
+		return L[i].ctr < L[j].ctr
+	})
+
+	fmt.Println("L: ", L)
+
+	for _, stableDot := range L {
+		stableDot.msg.SetType(STB)
+		mw.DeliverCausal <- stableDot.msg
+	}
+	//removes stable dots from SMap
+	for k, _ := range StableDots {
+		delete(mw.SMap, StableDotKey{k, StableDots[k]})
+	}
 }
 
-*/
+func (mw *Middleware) calculateStableVersion(j string) VClock {
+	newStableVersion := mw.StableVersion.Copy()
+	for keyMin, _ := range mw.Min {
+		if keyMin == j {
+			min := mw.Observed[keyMin][keyMin]
+			minRow := keyMin
+			for keyObs, _ := range mw.Observed {
+				if mw.Observed[keyObs][keyMin] < min {
+					min = mw.Observed[keyObs][keyMin]
+					minRow = keyObs
+				}
+			}
+			newStableVersion[keyMin] = min
+			mw.Min[keyMin] = minRow
+		}
+
+	}
+	return newStableVersion
+}

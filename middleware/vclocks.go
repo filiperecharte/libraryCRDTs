@@ -3,6 +3,15 @@ package middleware
 // Matrix of vector clocks for each replica
 type VClocks map[string]VClock
 
+// returns a new matrix of vector clocks
+func InitVClocks(ids []string) VClocks {
+	vc := make(VClocks)
+	for _, id := range ids {
+		vc[id] = InitVClock(ids)
+	}
+	return vc
+}
+
 // returns vector clock that is common to all replicas by choosing the minimum value of each vector clock
 func (vc VClocks) Common() VClock {
 	if len(vc) == 0 {

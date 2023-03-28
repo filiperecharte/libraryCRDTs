@@ -30,7 +30,7 @@ func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{},
 		Crdt:          crdt,
 		State:         crdt.Default(),
 		Middleware:    middleware.NewMiddleware(id, ids, channels, delay),
-		VersionVector: middleware.InitVClock(ids, uint64(len(ids))), //delivered version vector
+		VersionVector: middleware.InitVClock(ids), //delivered version vector
 	}
 
 	go r.dequeue()
@@ -56,7 +56,7 @@ func (r *Replica) dequeue() {
 			r.VersionVector[msg.OriginID] = msg.Version[msg.OriginID]
 			r.TCDeliver(msg)
 		} else if msg.Type == middleware.STB {
-			r.TCDeliver(msg)
+			r.TCStable(msg)
 		}
 	}
 }
@@ -68,7 +68,7 @@ func (r *Replica) TCDeliver(msg middleware.Message) {
 
 // The TCStable callback function is called when a message is set to stable.
 func (r *Replica) TCStable(msg middleware.Message) {
-	/* do things */
+	fmt.Println("Replica", r.ID, "received stable operation: ", msg)
 }
 
 // Update made by a client to a replica that receives the operation to be applied to the CRDT

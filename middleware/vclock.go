@@ -36,12 +36,9 @@ func NewVClock() VClock {
 	return VClock{}
 }
 
-func InitVClock(id []string, size uint64) VClock {
+func InitVClock(ids []string) VClock {
 	vc := NewVClock()
-	if size != uint64(len(id)) {
-		log.Fatal("Size of id and size of clock do not match")
-	}
-	for _, i := range id {
+	for _, i := range ids {
 		vc[i] = 0
 	}
 	return vc
@@ -217,4 +214,13 @@ func (vc VClock) Compare(other VClock) Condition {
 	}
 
 	return otherIs
+}
+
+// Subtract on vector clock from another
+func (vc VClock) Subtract(vc1 VClock) (subVC VClock) {
+	subVC = make(map[string]uint64)
+	for key := range vc {
+		subVC[key] = vc[key] - vc1[key]
+	}
+	return subVC
 }

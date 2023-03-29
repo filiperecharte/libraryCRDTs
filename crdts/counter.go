@@ -1,5 +1,7 @@
 package crdts
 
+import "library/packages/communication"
+
 type Counter struct{}
 
 func (c Counter) Default() interface{} {
@@ -9,7 +11,7 @@ func (c Counter) Default() interface{} {
 func (c Counter) Apply(s interface{}, ops []interface{}) interface{} {
 	state := s.(int)
 	for _, op := range ops {
-		state += op.(int)
+		state += op.(communication.Message).Value.(int)
 	}
 	return state
 }

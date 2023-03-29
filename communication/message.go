@@ -1,4 +1,4 @@
-package middleware
+package communication
 
 const (
 	MSG int = 0

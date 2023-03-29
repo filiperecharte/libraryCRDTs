@@ -2,6 +2,7 @@ package replica
 
 import (
 	"fmt"
+	"library/packages/communication"
 	"library/packages/crdt"
 	"library/packages/middleware"
 	"library/packages/utils"
@@ -16,7 +17,7 @@ type Replica struct {
 	State         interface{}
 	Unstable      []interface{} // operations waiting to stabilize
 	Middleware    *middleware.Middleware
-	VersionVector middleware.VClock
+	VersionVector communication.VClock
 }
 
 func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{}, delay bool) *Replica {
@@ -30,7 +31,7 @@ func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{},
 		Crdt:          crdt,
 		State:         crdt.Default(),
 		Middleware:    middleware.NewMiddleware(id, ids, channels, delay),
-		VersionVector: middleware.InitVClock(ids), //delivered version vector
+		VersionVector: communication.InitVClock(ids), //delivered version vector
 	}
 
 	go r.dequeue()
@@ -42,7 +43,7 @@ func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{},
 // and enqueuing the message with the updated version vector to the middleware process.
 func (r *Replica) TCBcast(op interface{}) {
 	r.VersionVector[r.ID]++
-	msg := middleware.NewMessage(middleware.DLV, op, r.VersionVector.Copy(), r.ID)
+	msg := communication.NewMessage(communication.DLV, op, r.VersionVector.Copy(), r.ID)
 	r.TCDeliver(msg)
 	r.Middleware.Tcbcast <- msg
 }
@@ -52,22 +53,22 @@ func (r *Replica) TCBcast(op interface{}) {
 func (r *Replica) dequeue() {
 	for {
 		msg := <-r.Middleware.DeliverCausal
-		if msg.Type == middleware.DLV {
+		if msg.Type == communication.DLV {
 			r.VersionVector[msg.OriginID] = msg.Version[msg.OriginID]
 			r.TCDeliver(msg)
-		} else if msg.Type == middleware.STB {
+		} else if msg.Type == communication.STB {
 			r.TCStable(msg)
 		}
 	}
 }
 
 // The TCDeliver callback function is called when a message is ready to be delivered.
-func (r *Replica) TCDeliver(msg middleware.Message) {
-	r.Unstable = append(r.Unstable, msg.Value)
+func (r *Replica) TCDeliver(msg communication.Message) {
+	r.Unstable = append(r.Unstable, msg)
 }
 
 // The TCStable callback function is called when a message is set to stable.
-func (r *Replica) TCStable(msg middleware.Message) {
+func (r *Replica) TCStable(msg communication.Message) {
 	fmt.Println("Replica", r.ID, "received stable operation: ", msg)
 }
 

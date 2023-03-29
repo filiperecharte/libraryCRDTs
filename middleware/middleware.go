@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"fmt"
+	"library/packages/communication"
 	"library/packages/utils"
 	"sort"
 )
@@ -12,7 +12,7 @@ type StableDotKey struct {
 }
 
 type StableDotValue struct {
-	msg Message
+	msg communication.Message
 	ctr uint64
 }
 
@@ -20,15 +20,15 @@ type Middleware struct {
 	replica          string
 	channels         map[string]chan interface{}
 	groupSize        int
-	DeliveredVersion VClock // last delivered vector clock
-	ReceivedVersion  VClock // last received vector clock
-	Tcbcast          chan Message
-	DeliverCausal    chan Message
-	DQ               []Message
+	DeliveredVersion communication.VClock // last delivered vector clock
+	ReceivedVersion  communication.VClock // last received vector clock
+	Tcbcast          chan communication.Message
+	DeliverCausal    chan communication.Message
+	DQ               []communication.Message
 	Delay            bool
 	Observed         VClocks // vector versions of observed universe
-	StableVersion    VClock
-	SMap             map[StableDotKey]StableDotValue // messages delivered but not yet stable (stable dots)
+	StableVersion    communication.VClock
+	SMap             map[StableDotKey]StableDotValue // communication.Messages delivered but not yet stable (stable dots)
 	Min              map[string]string
 	Ctr              uint64
 }
@@ -42,13 +42,13 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 		replica:          id,
 		channels:         channels,
 		groupSize:        groupSize,
-		DeliveredVersion: InitVClock(ids),
-		ReceivedVersion:  InitVClock(ids),
-		Tcbcast:          make(chan Message),
-		DeliverCausal:    make(chan Message),
+		DeliveredVersion: communication.InitVClock(ids),
+		ReceivedVersion:  communication.InitVClock(ids),
+		Tcbcast:          make(chan communication.Message),
+		DeliverCausal:    make(chan communication.Message),
 		Delay:            delay,
 		Observed:         InitVClocks(ids),
-		StableVersion:    InitVClock(ids),
+		StableVersion:    communication.InitVClock(ids),
 		SMap:             make(map[StableDotKey]StableDotValue),
 		Min:              utils.InitMin(ids),
 		Ctr:              0,
@@ -60,7 +60,7 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 	return mw
 }
 
-// run middleware by waiting for messages on Tcbcast channel
+// run middleware by waiting for communication.Messages on Tcbcast channel
 func (mw *Middleware) dequeue() {
 	for {
 		msg := <-mw.Tcbcast
@@ -71,9 +71,9 @@ func (mw *Middleware) dequeue() {
 }
 
 // TODO
-// broadcasts a received message to other middlewares
+// broadcasts a received communication.Message to other middlewares
 // for testing purposes we will just call receive with the ids of the other middlewares
-func (mw *Middleware) broadcast(msg Message) {
+func (mw *Middleware) broadcast(msg communication.Message) {
 	for id, ch := range mw.channels {
 		if mw.replica != id {
 			go func(newCh chan interface{}) { newCh <- msg }(ch)
@@ -85,7 +85,7 @@ func (mw *Middleware) receive() {
 
 	for {
 		m1 := <-mw.channels[mw.replica]
-		m := m1.(Message)
+		m := m1.(communication.Message)
 
 		/*if mw.Delay && m.OriginID == "3" {
 			fmt.Println(mw.replica, "delaying: ", m)
@@ -98,7 +98,7 @@ func (mw *Middleware) receive() {
 		V_m := m.Version
 		j := m.OriginID
 
-		if mw.ReceivedVersion[j] < V_m[j] { // messages from the same replica cannot be delivered out of order otherwise they are ignored
+		if mw.ReceivedVersion[j] < V_m[j] { // communication.Messages from the same replica cannot be delivered out of order otherwise they are ignored
 			mw.ReceivedVersion.Tick(j)
 			if V_m[j] == mw.DeliveredVersion[j]+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
 				mw.DeliveredVersion[j]++
@@ -130,7 +130,7 @@ func (mw *Middleware) deliver() {
 			msg := mw.DQ[from]
 			if msg.Version[msg.OriginID] == mw.DeliveredVersion[msg.OriginID]+1 && allCausalPredecessorsDelivered(msg.Version, mw.DeliveredVersion, msg.OriginID) {
 				mw.DeliveredVersion[msg.OriginID]++
-				mw.DeliverCausal <- NewMessage(DLV, msg.Value, msg.Version, msg.OriginID)
+				mw.DeliverCausal <- communication.NewMessage(communication.DLV, msg.Value, msg.Version, msg.OriginID)
 			} else {
 				mw.DQ[from] = mw.DQ[to]
 				to++
@@ -140,7 +140,7 @@ func (mw *Middleware) deliver() {
 	}
 }
 
-func allCausalPredecessorsDelivered(V_m, V_i VClock, j string) bool {
+func allCausalPredecessorsDelivered(V_m, V_i communication.VClock, j string) bool {
 	for k, v := range V_m {
 		if k != j && v > V_i[k] {
 			return false
@@ -149,7 +149,7 @@ func allCausalPredecessorsDelivered(V_m, V_i VClock, j string) bool {
 	return true
 }
 
-func (mw *Middleware) updatestability(msg Message) {
+func (mw *Middleware) updatestability(msg communication.Message) {
 	mw.Observed[mw.replica] = mw.DeliveredVersion
 	if mw.replica != msg.OriginID {
 		mw.Observed[msg.OriginID] = msg.Version
@@ -158,7 +158,7 @@ func (mw *Middleware) updatestability(msg Message) {
 	mw.SMap[StableDotKey{msg.OriginID, msg.Version[msg.OriginID]}] = StableDotValue{msg, mw.Ctr}
 	if _, ok := mw.Min[msg.OriginID]; ok {
 		var NewStableVersion = mw.calculateStableVersion(msg.OriginID)
-		if NewStableVersion.Compare(mw.StableVersion) != Equal {
+		if NewStableVersion.Compare(mw.StableVersion) != communication.Equal {
 			StableDots := NewStableVersion.Subtract(mw.StableVersion)
 			mw.stabilize(StableDots)
 			mw.StableVersion = NewStableVersion.Copy()
@@ -166,7 +166,7 @@ func (mw *Middleware) updatestability(msg Message) {
 	}
 }
 
-func (mw *Middleware) stabilize(StableDots VClock) {
+func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	var L []StableDotValue
 	for k, _ := range StableDots {
 		if _, ok := mw.SMap[StableDotKey{k, StableDots[k]}]; ok {
@@ -177,10 +177,8 @@ func (mw *Middleware) stabilize(StableDots VClock) {
 		return L[i].ctr < L[j].ctr
 	})
 
-	fmt.Println("L: ", L)
-
 	for _, stableDot := range L {
-		stableDot.msg.SetType(STB)
+		stableDot.msg.SetType(communication.STB)
 		mw.DeliverCausal <- stableDot.msg
 	}
 	//removes stable dots from SMap
@@ -189,7 +187,7 @@ func (mw *Middleware) stabilize(StableDots VClock) {
 	}
 }
 
-func (mw *Middleware) calculateStableVersion(j string) VClock {
+func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 	newStableVersion := mw.StableVersion.Copy()
 	for keyMin, _ := range mw.Min {
 		if keyMin == j {

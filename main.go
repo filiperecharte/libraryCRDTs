@@ -19,11 +19,11 @@ func main() {
 	}
 
 	// create Replicas and assign CRDT
-	replica1 := replica.NewReplica("1", crdts.Counter{}, channels, true)
-	replica2 := replica.NewReplica("2", crdts.Counter{}, channels, false)
-	replica3 := replica.NewReplica("3", crdts.Counter{}, channels, false)
+	counter1 := crdts.NewCounter("1", channels, true)
+	counter2 := crdts.NewCounter("2", channels, true)
+	counter3 := crdts.NewCounter("3", channels, true)
 
-	replicas := []*replica.Replica{replica1, replica2, replica3}
+	counters := []*replica.Replica{counter1, counter2, counter3}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
@@ -35,12 +35,12 @@ func main() {
 		if len(text) != 0 {
 			input := strings.Split(text, " ")
 
-			if rep, err2 := strconv.Atoi(input[0]); err2 == nil && rep > 0 && rep <= len(replicas) {
+			if rep, err2 := strconv.Atoi(input[0]); err2 == nil && rep > 0 && rep <= len(counters) {
 				if input[1] == "QUERY" {
-					fmt.Println(replicas[rep-1].Query())
+					fmt.Println(counters[rep-1].Query())
 				} else {
 					if op, err := strconv.Atoi(input[1]); err == nil {
-						replicas[rep-1].Update(op)
+						counters[rep-1].Add(op)
 					}
 				}
 			} else {

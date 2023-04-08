@@ -17,20 +17,20 @@ type StableDotValue struct {
 }
 
 type Middleware struct {
-	replica          string
-	channels         map[string]chan interface{}
-	groupSize        int
-	DeliveredVersion communication.VClock // last delivered vector clock
-	ReceivedVersion  communication.VClock // last received vector clock
-	Tcbcast          chan communication.Message
-	DeliverCausal    chan communication.Message
-	DQ               []communication.Message
-	Delay            bool
-	Observed         VClocks // vector versions of observed universe
-	StableVersion    communication.VClock
-	SMap             map[StableDotKey]StableDotValue // communication.Messages delivered but not yet stable (stable dots)
-	Min              map[string]string
-	Ctr              uint64
+	replica          string                          // replica id
+	channels         map[string]chan interface{}     // all channels of the universe
+	groupSize        int                             // size of the universe
+	DeliveredVersion communication.VClock            // last delivered vector clock
+	ReceivedVersion  communication.VClock            // last received vector clock
+	Tcbcast          chan communication.Message      // channel to receive messages from replica
+	DeliverCausal    chan communication.Message      // channel to causal deliver messages to replica
+	DQ               []communication.Message         // Delivery queue to add messages that dont have causal predecessors yet
+	Delay            bool                            // delay receive of message for debug reasons
+	Observed         VClocks                         // vector versions of observed universe
+	StableVersion    communication.VClock            // stable vector version
+	SMap             map[StableDotKey]StableDotValue // Messages delivered to replica but not yet stable (stable dots)
+	Min              map[string]string               // Replicas with the min vector
+	Ctr              uint64                          // order messages on stable delivery
 }
 
 // creates middleware state
@@ -81,6 +81,7 @@ func (mw *Middleware) broadcast(msg communication.Message) {
 	}
 }
 
+// receive messages from other replicas
 func (mw *Middleware) receive() {
 
 	for {
@@ -112,6 +113,7 @@ func (mw *Middleware) receive() {
 	}
 }
 
+// checks DQ to see if new messages can be delivered
 func (mw *Middleware) deliver() {
 	from := 0
 	to := 0
@@ -130,7 +132,7 @@ func (mw *Middleware) deliver() {
 			msg := mw.DQ[from]
 			if msg.Version[msg.OriginID] == mw.DeliveredVersion[msg.OriginID]+1 && allCausalPredecessorsDelivered(msg.Version, mw.DeliveredVersion, msg.OriginID) {
 				mw.DeliveredVersion[msg.OriginID]++
-				mw.DeliverCausal <- communication.NewMessage(communication.DLV, msg.Value, msg.Version, msg.OriginID)
+				mw.DeliverCausal <- communication.NewMessage(communication.DLV, msg.Operation, msg.Value, msg.Version, msg.OriginID)
 			} else {
 				mw.DQ[from] = mw.DQ[to]
 				to++
@@ -140,6 +142,7 @@ func (mw *Middleware) deliver() {
 	}
 }
 
+// check if a message has his causal predecessors delivered
 func allCausalPredecessorsDelivered(V_m, V_i communication.VClock, j string) bool {
 	for k, v := range V_m {
 		if k != j && v > V_i[k] {
@@ -149,6 +152,7 @@ func allCausalPredecessorsDelivered(V_m, V_i communication.VClock, j string) boo
 	return true
 }
 
+// Updates observed matrix and counter, finds stable version and send stable messages
 func (mw *Middleware) updatestability(msg communication.Message) {
 	mw.Observed[mw.replica] = mw.DeliveredVersion
 	if mw.replica != msg.OriginID {
@@ -166,6 +170,7 @@ func (mw *Middleware) updatestability(msg communication.Message) {
 	}
 }
 
+// Order messages on stable dots and send the ones before stable vector to replica
 func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	var L []StableDotValue
 	for k, _ := range StableDots {
@@ -187,6 +192,9 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	}
 }
 
+// Calculating the Stable vector every time Observed is updated can become costly, specially when dealing with large groups.
+// To overcome this problem the Min vector was created, by checking if the sender’s id is in it.
+// If it is not, then the minimums of the columns are the same and Min has not changed.
 func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 	newStableVersion := mw.StableVersion.Copy()
 	for keyMin, _ := range mw.Min {

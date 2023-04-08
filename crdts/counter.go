@@ -1,17 +1,32 @@
 package crdts
 
-import "library/packages/communication"
+import (
+	"fmt"
+	"library/packages/communication"
+	"library/packages/replica"
+)
 
-type Counter struct{}
-
-func (c Counter) Default() interface{} {
-	return 0
+type Counter struct {
+	state int
 }
 
-func (c Counter) Apply(s interface{}, ops []interface{}) interface{} {
-	state := s.(int)
-	for _, op := range ops {
-		state += op.(communication.Message).Value.(int)
+func (r *Counter) TCDeliver(msg communication.Message) {
+	r.state += msg.Value.(int)
+}
+
+func (r *Counter) TCStable(msg communication.Message) {
+	fmt.Println("Ignoring received stable operation: ", msg)
+}
+
+func (r *Counter) Query() interface{} {
+	return r.state
+}
+
+// initialize counter
+func NewCounter(id string, channels map[string]chan interface{}, delay bool) *replica.Replica {
+	c := &Counter{
+		state: 0,
 	}
-	return state
+
+	return replica.NewReplica(id, c, channels, delay)
 }

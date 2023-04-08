@@ -143,6 +143,11 @@ func (vc VClock) ReturnVCString() string {
 	return buffer.String()
 }
 
+// Equal returns true if the callee's clock is equal to the other clock
+func (vc VClock) Equals(other VClock) bool {
+	return vc.Compare(other) == Equal
+}
+
 // Compare takes another clock and determines if it is Equal,
 // Ancestor, Descendant, or Concurrent with the callee's clock.
 func (vc VClock) Compare(other VClock) Condition {

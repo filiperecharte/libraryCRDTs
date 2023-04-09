@@ -88,14 +88,6 @@ func (mw *Middleware) receive() {
 		m1 := <-mw.channels[mw.replica]
 		m := m1.(communication.Message)
 
-		/*if mw.Delay && m.OriginID == "3" {
-			fmt.Println(mw.replica, "delaying: ", m)
-			time.Sleep(10 * time.Second)
-			go func() { mw.channels[mw.replica] <- m }()
-			mw.Delay = false
-			continue
-		}*/
-
 		V_m := m.Version
 		j := m.OriginID
 

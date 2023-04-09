@@ -19,39 +19,73 @@ func main() {
 	}
 
 	// create Replicas and assign CRDT
-	counter1 := crdts.NewCounter("1", channels, true)
-	counter2 := crdts.NewCounter("2", channels, true)
-	counter3 := crdts.NewCounter("3", channels, true)
+	counter1 := crdts.NewMVRegister("1", channels, true)
+	counter2 := crdts.NewMVRegister("2", channels, true)
+	counter3 := crdts.NewMVRegister("3", channels, true)
 
 	counters := []*replica.Replica{counter1, counter2, counter3}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Print("INPUT: replica operation \n")
-		// reads user input until \n by default
-		scanner.Scan()
-		// Holds the string that was scanned
-		text := scanner.Text()
-		if len(text) != 0 {
-			input := strings.Split(text, " ")
-
-			if rep, err2 := strconv.Atoi(input[0]); err2 == nil && rep > 0 && rep <= len(counters) {
-				if input[1] == "QUERY" {
-					fmt.Println(counters[rep-1].Query())
-				} else {
-					if op, err := strconv.Atoi(input[1]); err == nil {
-						counters[rep-1].Add(op)
-					}
-				}
-			} else {
-				fmt.Println("Invalid input")
-				return
-			}
-
-		} else {
-			// exit if user entered an empty string
-			break
+		fmt.Println("Enter command:")
+		// Read the next line of input from the scanner
+		if !scanner.Scan() {
+			// An error occurred or end of input was reached
+			fmt.Println("Error reading input:", scanner.Err())
+			continue
 		}
 
+		// Parse the input line into arguments
+		args := strings.Fields(scanner.Text())
+
+		// Ensure at least two arguments are provided
+		if len(args) < 2 {
+			fmt.Println("Usage: <replica> <action> [<value>]")
+			continue
+		}
+
+		// Parse replica number from first argument
+		replica, err := strconv.Atoi(args[0])
+		if err != nil {
+			fmt.Println("Error: Invalid replica number")
+			continue
+		}
+
+		// Parse action from second argument
+		action := args[1]
+
+		// Perform action based on second argument
+		switch action {
+		case "QUERY":
+			fmt.Printf("Querying replica %d...\n", replica)
+			fmt.Println(counters[replica-1].Query())
+		case "ADD":
+			if len(args) != 3 {
+				fmt.Println("Error: Missing value argument for ADD action")
+				continue
+			}
+			value, err := strconv.Atoi(args[2])
+			if err != nil {
+				fmt.Println("Error: Invalid value for ADD action")
+				continue
+			}
+			fmt.Printf("Adding value %d to replica %d...\n", value, replica)
+			counters[replica-1].Add(value)
+		case "REM":
+			if len(args) != 3 {
+				fmt.Println("Error: Missing value argument for REM action")
+				continue
+			}
+			value, err := strconv.Atoi(args[2])
+			if err != nil {
+				fmt.Println("Error: Invalid value for REM action")
+				continue
+			}
+			fmt.Printf("Removing value %d from replica %d...\n", value, replica)
+			counters[replica-1].Remove(value)
+		default:
+			fmt.Println("Error: Invalid action")
+			break
+		}
 	}
 }

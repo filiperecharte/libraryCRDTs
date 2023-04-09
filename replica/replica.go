@@ -37,8 +37,9 @@ func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{},
 
 // Broadcasts a message by incrementing the replica's own entry in the version vector
 // and enqueuing the message with the updated version vector to the middleware process.
-func (r *Replica) TCBcast(msg communication.Message) {
+func (r *Replica) TCBcast(operation int, value any) {
 	r.VersionVector[r.id]++
+	msg := communication.NewMessage(communication.DLV, operation, value, r.VersionVector.Copy(), r.id)
 	r.TCDeliver(msg)
 	r.middleware.Tcbcast <- msg
 }
@@ -60,11 +61,19 @@ func (r *Replica) dequeue() {
 // Update made by a client to a replica that receives the operation to be applied to the CRDT
 // sends the operation to middleware for broadcast
 func (r *Replica) Add(value any) {
-	msg := communication.NewMessage(communication.DLV, communication.ADD, value, r.VersionVector.Copy(), r.id)
-	r.TCBcast(msg)
+	/*if reflect.ValueOf(value).Kind() != reflect.Slice {
+		if reflect.TypeOf(value) != reflect.TypeOf(r.State()) {
+			fmt.Println("Error: Type mismatch")
+			return
+		}
+	} else if reflect.TypeOf(value).Elem() != reflect.TypeOf(r.State()).Elem() {
+		fmt.Println("Error: Type mismatch")
+		return
+	}*/
+
+	r.TCBcast(communication.ADD, value)
 }
 
 func (r *Replica) Remove(value any) {
-	msg := communication.NewMessage(communication.DLV, communication.REM, value, r.VersionVector.Copy(), r.id)
-	r.TCBcast(msg)
+	r.TCBcast(communication.REM, value)
 }

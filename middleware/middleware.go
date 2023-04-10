@@ -3,7 +3,9 @@ package middleware
 import (
 	"library/packages/communication"
 	"library/packages/utils"
+	"log"
 	"sort"
+	"sync"
 )
 
 type StableDotKey struct {
@@ -16,25 +18,30 @@ type StableDotValue struct {
 	ctr uint64
 }
 
+type SMap struct {
+	sync.RWMutex
+	m map[StableDotKey]StableDotValue
+}
+
 type Middleware struct {
-	replica          string                          // replica id
-	channels         map[string]chan interface{}     // all channels of the universe
-	groupSize        int                             // size of the universe
-	DeliveredVersion communication.VClock            // last delivered vector clock
-	ReceivedVersion  communication.VClock            // last received vector clock
-	Tcbcast          chan communication.Message      // channel to receive messages from replica
-	DeliverCausal    chan communication.Message      // channel to causal deliver messages to replica
-	DQ               []communication.Message         // Delivery queue to add messages that dont have causal predecessors yet
-	Delay            bool                            // delay receive of message for debug reasons
-	Observed         VClocks                         // vector versions of observed universe
-	StableVersion    communication.VClock            // stable vector version
-	SMap             map[StableDotKey]StableDotValue // Messages delivered to replica but not yet stable (stable dots)
-	Min              map[string]string               // Replicas with the min vector
-	Ctr              uint64                          // order messages on stable delivery
+	replica          string                      // replica id
+	channels         map[string]chan interface{} // all channels of the universe
+	groupSize        int                         // size of the universe
+	DeliveredVersion communication.VClock        // last delivered vector clock
+	ReceivedVersion  communication.VClock        // last received vector clock
+	Tcbcast          chan communication.Message  // channel to receive messages from replica
+	DeliverCausal    chan communication.Message  // channel to causal deliver messages to replica
+	DQ               []communication.Message     // Delivery queue to add messages that dont have causal predecessors yet
+	Delay            bool                        // delay receive of message for debug reasons
+	Observed         VClocks                     // vector versions of observed universe
+	StableVersion    communication.VClock        // stable vector version
+	SMap             SMap                        // Messages delivered to replica but not yet stable (stable dots)
+	Min              map[string]string           // Replicas with the min vector
+	Ctr              uint64                      // order messages on stable delivery
 }
 
 // creates middleware state
-func NewMiddleware(id string, ids []string, channels map[string]chan interface{}, delay bool) *Middleware {
+func NewMiddleware(id string, ids []string, channels map[string]chan interface{}) *Middleware {
 
 	groupSize := len(ids)
 
@@ -46,10 +53,9 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 		ReceivedVersion:  communication.InitVClock(ids),
 		Tcbcast:          make(chan communication.Message),
 		DeliverCausal:    make(chan communication.Message),
-		Delay:            delay,
 		Observed:         InitVClocks(ids),
 		StableVersion:    communication.InitVClock(ids),
-		SMap:             make(map[StableDotKey]StableDotValue),
+		SMap:             SMap{m: make(map[StableDotKey]StableDotValue)},
 		Min:              utils.InitMin(ids),
 		Ctr:              0,
 	}
@@ -86,27 +92,30 @@ func (mw *Middleware) receive() {
 
 	for {
 		m1 := <-mw.channels[mw.replica]
+		log.Println("replica ", mw.replica, " received ", m1, " from ", m1.(communication.Message).OriginID)
 		m := m1.(communication.Message)
 
 		V_m := m.Version
 		j := m.OriginID
 
-		if mw.ReceivedVersion[j] < V_m[j] { // communication.Messages from the same replica cannot be delivered out of order otherwise they are ignored
-			mw.ReceivedVersion.Tick(j)
-			if V_m[j] == mw.DeliveredVersion[j]+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
-				mw.DeliveredVersion[j]++
-				mw.DeliverCausal <- m
-				mw.updatestability(m)
-				mw.deliver()
-			} else {
-				mw.DQ = append(mw.DQ, m)
-			}
+		//if mw.ReceivedVersion[j] < V_m[j] { // communication.Messages from the same replica cannot be delivered out of order otherwise they are ignored
+		mw.ReceivedVersion.Tick(j)
+		if V_m[j] == mw.DeliveredVersion[j]+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
+			mw.DeliveredVersion[j]++
+			mw.DeliverCausal <- m
+			mw.updatestability(m)
+			mw.deliver()
+		} else {
+			log.Println("replica", mw.replica, "adding to DQ: ", m)
+			mw.DQ = append(mw.DQ, m)
 		}
+		//}
 	}
 }
 
 // checks DQ to see if new messages can be delivered
 func (mw *Middleware) deliver() {
+	log.Println("replica", mw.replica, "delivering from DQ: ", mw.DQ)
 	from := 0
 	to := 0
 	for {
@@ -146,12 +155,20 @@ func allCausalPredecessorsDelivered(V_m, V_i communication.VClock, j string) boo
 
 // Updates observed matrix and counter, finds stable version and send stable messages
 func (mw *Middleware) updatestability(msg communication.Message) {
-	mw.Observed[mw.replica] = mw.DeliveredVersion
+
+	mw.Observed.Lock()
+	mw.Observed.m[mw.replica] = mw.DeliveredVersion
 	if mw.replica != msg.OriginID {
-		mw.Observed[msg.OriginID] = msg.Version
+		mw.Observed.m[msg.OriginID] = msg.Version
 	}
+	mw.Observed.Unlock()
+
 	mw.Ctr++
-	mw.SMap[StableDotKey{msg.OriginID, msg.Version[msg.OriginID]}] = StableDotValue{msg, mw.Ctr}
+
+	mw.SMap.Lock()
+	mw.SMap.m[StableDotKey{msg.OriginID, msg.Version[msg.OriginID]}] = StableDotValue{msg, mw.Ctr}
+	mw.SMap.Unlock()
+
 	if _, ok := mw.Min[msg.OriginID]; ok {
 		var NewStableVersion = mw.calculateStableVersion(msg.OriginID)
 		if NewStableVersion.Compare(mw.StableVersion) != communication.Equal {
@@ -166,9 +183,13 @@ func (mw *Middleware) updatestability(msg communication.Message) {
 func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	var L []StableDotValue
 	for k, _ := range StableDots {
-		if _, ok := mw.SMap[StableDotKey{k, StableDots[k]}]; ok {
-			L = append(L, mw.SMap[StableDotKey{k, StableDots[k]}])
+
+		mw.SMap.Lock()
+		if _, ok := mw.SMap.m[StableDotKey{k, StableDots[k]}]; ok {
+			L = append(L, mw.SMap.m[StableDotKey{k, StableDots[k]}])
 		}
+		mw.SMap.Unlock()
+
 	}
 	sort.Slice(L, func(i, j int) bool {
 		return L[i].ctr < L[j].ctr
@@ -180,7 +201,9 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	}
 	//removes stable dots from SMap
 	for k, _ := range StableDots {
-		delete(mw.SMap, StableDotKey{k, StableDots[k]})
+		mw.SMap.Lock()
+		delete(mw.SMap.m, StableDotKey{k, StableDots[k]})
+		mw.SMap.Unlock()
 	}
 }
 
@@ -191,14 +214,18 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 	newStableVersion := mw.StableVersion.Copy()
 	for keyMin, _ := range mw.Min {
 		if keyMin == j {
-			min := mw.Observed[keyMin][keyMin]
+
+			mw.Observed.Lock()
+			min := mw.Observed.m[keyMin][keyMin]
 			minRow := keyMin
-			for keyObs, _ := range mw.Observed {
-				if mw.Observed[keyObs][keyMin] < min {
-					min = mw.Observed[keyObs][keyMin]
+			for keyObs, _ := range mw.Observed.m {
+				if mw.Observed.m[keyObs][keyMin] < min {
+					min = mw.Observed.m[keyObs][keyMin]
 					minRow = keyObs
 				}
 			}
+			mw.Observed.Unlock()
+
 			newStableVersion[keyMin] = min
 			mw.Min[keyMin] = minRow
 		}

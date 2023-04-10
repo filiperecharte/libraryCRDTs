@@ -5,6 +5,7 @@ import (
 	"library/packages/crdt"
 	"library/packages/middleware"
 	"library/packages/utils"
+	"log"
 )
 
 //type ReplicaID string
@@ -17,7 +18,7 @@ type Replica struct {
 	VersionVector communication.VClock
 }
 
-func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{}, delay bool) *Replica {
+func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{}) *Replica {
 	//initialize replica state
 
 	ids := utils.MapToKeys(channels)
@@ -26,7 +27,7 @@ func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{},
 		id,
 		channels,
 		crdt,
-		middleware.NewMiddleware(id, ids, channels, delay),
+		middleware.NewMiddleware(id, ids, channels),
 		communication.InitVClock(ids), //delivered version vector
 	}
 
@@ -39,8 +40,10 @@ func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{},
 // and enqueuing the message with the updated version vector to the middleware process.
 func (r *Replica) TCBcast(operation int, value any) {
 	r.VersionVector[r.id]++
-	msg := communication.NewMessage(communication.DLV, operation, value, r.VersionVector.Copy(), r.id)
+	vv := r.VersionVector.Copy()
+	msg := communication.NewMessage(communication.DLV, operation, value, vv, r.id)
 	r.TCDeliver(msg)
+	log.Println("replica ", r.id, " broadcasted: ", msg)
 	r.middleware.Tcbcast <- msg
 }
 
@@ -49,6 +52,7 @@ func (r *Replica) TCBcast(operation int, value any) {
 func (r *Replica) dequeue() {
 	for {
 		msg := <-r.middleware.DeliverCausal
+		log.Println("replica ", r.id, " dequeued: ", msg)
 		if msg.Type == communication.DLV {
 			r.VersionVector[msg.OriginID] = msg.Version[msg.OriginID]
 			r.TCDeliver(msg)

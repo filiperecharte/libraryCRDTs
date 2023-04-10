@@ -47,10 +47,10 @@ func (r *MVRegister) Query() any {
 }
 
 // initialize counter
-func NewMVRegister(id string, channels map[string]chan any, delay bool) *replica.Replica {
+func NewMVRegister(id string, channels map[string]chan any) *replica.Replica {
 	r := &MVRegister{
 		state: mapset.NewSet[update](),
 	}
 
-	return replica.NewReplica(id, r, channels, delay)
+	return replica.NewReplica(id, r, channels)
 }

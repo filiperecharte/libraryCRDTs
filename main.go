@@ -19,9 +19,9 @@ func main() {
 	}
 
 	// create Replicas and assign CRDT
-	counter1 := crdts.NewMVRegister("1", channels, true)
-	counter2 := crdts.NewMVRegister("2", channels, true)
-	counter3 := crdts.NewMVRegister("3", channels, true)
+	counter1 := crdts.NewCounter("1", channels)
+	counter2 := crdts.NewCounter("2", channels)
+	counter3 := crdts.NewCounter("3", channels)
 
 	counters := []*replica.Replica{counter1, counter2, counter3}
 

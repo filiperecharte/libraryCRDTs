@@ -28,10 +28,10 @@ func (r *PNCounter) Query() interface{} {
 }
 
 // initialize counter
-func NewPNCounter(id string, channels map[string]chan interface{}, delay bool) *replica.Replica {
+func NewPNCounter(id string, channels map[string]chan interface{}) *replica.Replica {
 	c := &Counter{
 		state: 0,
 	}
 
-	return replica.NewReplica(id, c, channels, delay)
+	return replica.NewReplica(id, c, channels)
 }

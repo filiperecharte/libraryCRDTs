@@ -66,12 +66,12 @@ func (r *RGA) Query() any {
 }
 
 // initialize counter
-func NewRGA(id string, channels map[string]chan any, delay bool) *replica.Replica {
+func NewRGA(id string, channels map[string]chan any) *replica.Replica {
 	r := &RGA{
 		state: make([]Vertex, 0),
 	}
 
-	return replica.NewReplica(id, r, channels, delay)
+	return replica.NewReplica(id, r, channels)
 }
 
 func indexOfVPtr(ptr Position, vertices []Vertex) int {

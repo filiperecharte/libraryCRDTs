@@ -2,9 +2,7 @@ package communication
 
 import (
 	"bytes"
-	"encoding/gob"
 	"fmt"
-	"log"
 )
 
 // Condition constants define how to compare a vector clock against another,
@@ -91,27 +89,6 @@ func (vc VClock) Merge(other VClock) {
 			vc[id] = other[id]
 		}
 	}
-}
-
-// Bytes returns an encoded vector clock
-func (vc VClock) Bytes() []byte {
-	b := new(bytes.Buffer)
-	enc := gob.NewEncoder(b)
-	err := enc.Encode(vc)
-	if err != nil {
-		log.Fatal("Vector Clock Encode:", err)
-	}
-	return b.Bytes()
-}
-
-// FromBytes decodes a vector clock
-func FromBytes(data []byte) (vc VClock, err error) {
-	b := new(bytes.Buffer)
-	b.Write(data)
-	clock := NewVClock()
-	dec := gob.NewDecoder(b)
-	err = dec.Decode(&clock)
-	return clock, err
 }
 
 // PrintVC prints the callee's vector clock to stdout

@@ -7,14 +7,15 @@ import (
 
 // Matrix of vector clocks for each replica
 type VClocks struct {
-	sync.RWMutex
+	*sync.RWMutex
 	m map[string]communication.VClock
 }
 
 // returns a new matrix of vector clocks
 func InitVClocks(ids []string) VClocks {
 	vc := VClocks{
-		m: make(map[string]communication.VClock),
+		RWMutex: new(sync.RWMutex),
+		m:       make(map[string]communication.VClock),
 	}
 	for _, id := range ids {
 		vc.m[id] = communication.InitVClock(ids)
@@ -22,52 +23,23 @@ func InitVClocks(ids []string) VClocks {
 	return vc
 }
 
-// returns vector clock that is common to all replicas by choosing the minimum value of each vector clock
-func (vc VClocks) Common() communication.VClock {
-	if len(vc.m) == 0 {
-		return nil
-	}
-	common := make(communication.VClock)
-	for _, vclock := range vc.m {
-		for id, ticks := range vclock {
-			if common[id] > ticks {
-				common[id] = ticks
-			}
-		}
-	}
-	return common
+// returns map for a specific position
+func (vcs VClocks) GetTick(id string, id1 string) uint64 {
+	vcs.Lock()
+	defer vcs.Unlock()
+	return vcs.m[id].FindTicks(id1)
 }
 
-// returns the latest vector clock (most up to date) by choosing the maximum value of each vector clock
-func (vc VClocks) Latest() communication.VClock {
-	if len(vc.m) == 0 {
-		return nil
-	}
-	latest := make(communication.VClock)
-	for _, vclock := range vc.m {
-		for id, ticks := range vclock {
-			if latest[id] < ticks {
-				latest[id] = ticks
-			}
-		}
-	}
-	return latest
+// set vclock for a specific position
+func (vcs *VClocks) SetVClock(id string, vc communication.VClock) {
+	vcs.Lock()
+	vcs.m[id] = vc
+	vcs.Unlock()
 }
 
-// merges two matrix of vector clocks together by choosing the maximum value of each vector clock
-func (vc VClocks) Merge(other VClocks) {
-	for id, vclock := range other.m {
-		if _, ok := vc.m[id]; !ok {
-			vc.m[id] = make(communication.VClock)
-		}
-		vc.m[id].Merge(vclock)
-	}
-}
-
-// updates the matrix by adding a new vector clock for a replica if it does not exist and merge if it exists
-func (vc VClocks) Update(id string, vclock communication.VClock) {
-	if _, ok := vc.m[id]; !ok {
-		vc.m[id] = make(communication.VClock)
-	}
-	vc.m[id].Merge(vclock)
+// returns map
+func (vcs VClocks) GetMap() map[string]communication.VClock {
+	vcs.Lock()
+	defer vcs.Unlock()
+	return map[string]communication.VClock(vcs.m)
 }

@@ -39,7 +39,7 @@ func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{})
 // Broadcasts a message by incrementing the replica's own entry in the version vector
 // and enqueuing the message with the updated version vector to the middleware process.
 func (r *Replica) TCBcast(operation int, value any) {
-	r.VersionVector[r.id]++
+	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
 	msg := communication.NewMessage(communication.DLV, operation, value, vv, r.id)
 	r.TCDeliver(msg)
@@ -51,10 +51,12 @@ func (r *Replica) TCBcast(operation int, value any) {
 // Increments the sender's entry in the replica's version vector before calling the TCDeliver callback.
 func (r *Replica) dequeue() {
 	for {
+		log.Println("replica ", r.id, " dequeuing... ")
 		msg := <-r.middleware.DeliverCausal
 		log.Println("replica ", r.id, " dequeued: ", msg)
 		if msg.Type == communication.DLV {
-			r.VersionVector[msg.OriginID] = msg.Version[msg.OriginID]
+			t := msg.Version.FindTicks(msg.OriginID)
+			r.VersionVector.Set(msg.OriginID, t)
 			r.TCDeliver(msg)
 		} else if msg.Type == communication.STB {
 			r.TCStable(msg)

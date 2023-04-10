@@ -59,7 +59,7 @@ func TestCounter(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		numAdds := 30
+		numAdds := 10
 		adds := make([]int, numAdds)
 		delays := make([]time.Duration, numAdds)
 

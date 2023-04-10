@@ -70,9 +70,13 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 func (mw *Middleware) dequeue() {
 	for {
 		msg := <-mw.Tcbcast
+		log.Println("replica ", mw.replica, " received tbcast")
 		mw.DeliveredVersion.Tick(mw.replica)
+		log.Println("replica ", mw.replica, " after tick")
 		mw.updatestability(msg)
+		log.Println("replica ", mw.replica, " after updatestability")
 		mw.broadcast(msg)
+		log.Println("replica ", mw.replica, " after broadcast")
 	}
 }
 
@@ -89,24 +93,26 @@ func (mw *Middleware) broadcast(msg communication.Message) {
 
 // receive messages from other replicas
 func (mw *Middleware) receive() {
-
+	log.Println("replica ", mw.replica, " started receiving")
 	for {
+		log.Println("replica ", mw.replica, " waiting for message")
 		m1 := <-mw.channels[mw.replica]
-		log.Println("replica ", mw.replica, " received ", m1, " from ", m1.(communication.Message).OriginID)
 		m := m1.(communication.Message)
+
+		(m.Version).NewMutex()
+		log.Println("replica ", mw.replica, " received ", m, " from ", m.OriginID)
 
 		V_m := m.Version
 		j := m.OriginID
 
 		//if mw.ReceivedVersion[j] < V_m[j] { // communication.Messages from the same replica cannot be delivered out of order otherwise they are ignored
 		mw.ReceivedVersion.Tick(j)
-		if V_m[j] == mw.DeliveredVersion[j]+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
-			mw.DeliveredVersion[j]++
+		if V_m.FindTicks(j) == mw.DeliveredVersion.FindTicks(j)+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
+			mw.DeliveredVersion.Tick(j)
 			mw.DeliverCausal <- m
 			mw.updatestability(m)
 			mw.deliver()
 		} else {
-			log.Println("replica", mw.replica, "adding to DQ: ", m)
 			mw.DQ = append(mw.DQ, m)
 		}
 		//}
@@ -131,8 +137,8 @@ func (mw *Middleware) deliver() {
 			to = 0
 		} else {
 			msg := mw.DQ[from]
-			if msg.Version[msg.OriginID] == mw.DeliveredVersion[msg.OriginID]+1 && allCausalPredecessorsDelivered(msg.Version, mw.DeliveredVersion, msg.OriginID) {
-				mw.DeliveredVersion[msg.OriginID]++
+			if msg.Version.FindTicks(msg.OriginID) == mw.DeliveredVersion.FindTicks(msg.OriginID)+1 && allCausalPredecessorsDelivered(msg.Version, mw.DeliveredVersion, msg.OriginID) {
+				mw.DeliveredVersion.Tick(msg.OriginID)
 				mw.DeliverCausal <- communication.NewMessage(communication.DLV, msg.Operation, msg.Value, msg.Version, msg.OriginID)
 			} else {
 				mw.DQ[from] = mw.DQ[to]
@@ -145,8 +151,8 @@ func (mw *Middleware) deliver() {
 
 // check if a message has his causal predecessors delivered
 func allCausalPredecessorsDelivered(V_m, V_i communication.VClock, j string) bool {
-	for k, v := range V_m {
-		if k != j && v > V_i[k] {
+	for k, v := range V_m.GetMap() {
+		if k != j && v > V_i.FindTicks(k) {
 			return false
 		}
 	}
@@ -155,20 +161,15 @@ func allCausalPredecessorsDelivered(V_m, V_i communication.VClock, j string) boo
 
 // Updates observed matrix and counter, finds stable version and send stable messages
 func (mw *Middleware) updatestability(msg communication.Message) {
-
-	mw.Observed.Lock()
-	mw.Observed.m[mw.replica] = mw.DeliveredVersion
+	mw.Observed.SetVClock(mw.replica, mw.DeliveredVersion)
 	if mw.replica != msg.OriginID {
-		mw.Observed.m[msg.OriginID] = msg.Version
+		mw.Observed.SetVClock(msg.OriginID, mw.DeliveredVersion)
 	}
-	mw.Observed.Unlock()
-
 	mw.Ctr++
 
 	mw.SMap.Lock()
-	mw.SMap.m[StableDotKey{msg.OriginID, msg.Version[msg.OriginID]}] = StableDotValue{msg, mw.Ctr}
+	mw.SMap.m[StableDotKey{msg.OriginID, msg.Version.FindTicks(msg.OriginID)}] = StableDotValue{msg, mw.Ctr}
 	mw.SMap.Unlock()
-
 	if _, ok := mw.Min[msg.OriginID]; ok {
 		var NewStableVersion = mw.calculateStableVersion(msg.OriginID)
 		if NewStableVersion.Compare(mw.StableVersion) != communication.Equal {
@@ -182,11 +183,12 @@ func (mw *Middleware) updatestability(msg communication.Message) {
 // Order messages on stable dots and send the ones before stable vector to replica
 func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	var L []StableDotValue
-	for k, _ := range StableDots {
-
+	log.Println("replica", mw.replica, "stable dots: ", StableDots)
+	for k, _ := range StableDots.GetMap() {
+		t := StableDots.FindTicks(k)
 		mw.SMap.Lock()
-		if _, ok := mw.SMap.m[StableDotKey{k, StableDots[k]}]; ok {
-			L = append(L, mw.SMap.m[StableDotKey{k, StableDots[k]}])
+		if _, ok := mw.SMap.m[StableDotKey{k, t}]; ok {
+			L = append(L, mw.SMap.m[StableDotKey{k, t}])
 		}
 		mw.SMap.Unlock()
 
@@ -194,15 +196,15 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	sort.Slice(L, func(i, j int) bool {
 		return L[i].ctr < L[j].ctr
 	})
-
 	for _, stableDot := range L {
 		stableDot.msg.SetType(communication.STB)
 		mw.DeliverCausal <- stableDot.msg
 	}
 	//removes stable dots from SMap
-	for k, _ := range StableDots {
+	for k, _ := range StableDots.GetMap() {
+		t := StableDots.FindTicks(k)
 		mw.SMap.Lock()
-		delete(mw.SMap.m, StableDotKey{k, StableDots[k]})
+		delete(mw.SMap.m, StableDotKey{k, t})
 		mw.SMap.Unlock()
 	}
 }
@@ -211,25 +213,30 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 // To overcome this problem the Min vector was created, by checking if the sender’s id is in it.
 // If it is not, then the minimums of the columns are the same and Min has not changed.
 func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
+	log.Printf("replica %s calculating stable version  [1] MUTEX: %p\n", mw.replica, &mw.StableVersion.RWMutex)
 	newStableVersion := mw.StableVersion.Copy()
+	log.Println("replica ", mw.replica, " calculating stable version  [2]")
 	for keyMin, _ := range mw.Min {
 		if keyMin == j {
-
-			mw.Observed.Lock()
-			min := mw.Observed.m[keyMin][keyMin]
+			log.Println("replica ", mw.replica, " calculating stable version  [3]")
+			min := mw.Observed.GetTick(mw.replica, keyMin)
+			log.Println("replica ", mw.replica, " calculating stable version  [4]")
 			minRow := keyMin
-			for keyObs, _ := range mw.Observed.m {
-				if mw.Observed.m[keyObs][keyMin] < min {
-					min = mw.Observed.m[keyObs][keyMin]
+			for keyObs, _ := range mw.Observed.GetMap() {
+				log.Println("replica ", mw.replica, " calculating stable version  [5]")
+				if mw.Observed.GetTick(keyObs, keyMin) < min {
+					log.Println("replica ", mw.replica, " calculating stable version  [6]")
+					min = mw.Observed.GetTick(keyObs, keyMin)
 					minRow = keyObs
+					log.Println("replica ", mw.replica, " calculating stable version  [7]")
 				}
 			}
-			mw.Observed.Unlock()
-
-			newStableVersion[keyMin] = min
+			log.Println("replica ", mw.replica, " calculating stable version  [8]")
+			newStableVersion.Set(keyMin, min)
 			mw.Min[keyMin] = minRow
 		}
 
 	}
+	log.Println("replica ", mw.replica, " calculating stable version  [9]")
 	return newStableVersion
 }

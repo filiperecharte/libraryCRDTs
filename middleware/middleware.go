@@ -3,7 +3,6 @@ package middleware
 import (
 	"library/packages/communication"
 	"library/packages/utils"
-	"log"
 	"sort"
 	"sync"
 )
@@ -19,8 +18,13 @@ type StableDotValue struct {
 }
 
 type SMap struct {
-	sync.RWMutex
+	*sync.RWMutex
 	m map[StableDotKey]StableDotValue
+}
+
+type Min struct {
+	*sync.RWMutex
+	m map[string]string
 }
 
 type Middleware struct {
@@ -36,7 +40,7 @@ type Middleware struct {
 	Observed         VClocks                     // vector versions of observed universe
 	StableVersion    communication.VClock        // stable vector version
 	SMap             SMap                        // Messages delivered to replica but not yet stable (stable dots)
-	Min              map[string]string           // Replicas with the min vector
+	Min              Min                         // Replicas with the min vector
 	Ctr              uint64                      // order messages on stable delivery
 }
 
@@ -55,8 +59,8 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 		DeliverCausal:    make(chan communication.Message),
 		Observed:         InitVClocks(ids),
 		StableVersion:    communication.InitVClock(ids),
-		SMap:             SMap{m: make(map[StableDotKey]StableDotValue)},
-		Min:              utils.InitMin(ids),
+		SMap:             SMap{RWMutex: new(sync.RWMutex), m: make(map[StableDotKey]StableDotValue)},
+		Min:              Min{RWMutex: new(sync.RWMutex), m: utils.InitMin(ids)},
 		Ctr:              0,
 	}
 
@@ -70,13 +74,9 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 func (mw *Middleware) dequeue() {
 	for {
 		msg := <-mw.Tcbcast
-		log.Println("replica ", mw.replica, " received tbcast")
 		mw.DeliveredVersion.Tick(mw.replica)
-		log.Println("replica ", mw.replica, " after tick")
 		mw.updatestability(msg)
-		log.Println("replica ", mw.replica, " after updatestability")
 		mw.broadcast(msg)
-		log.Println("replica ", mw.replica, " after broadcast")
 	}
 }
 
@@ -93,14 +93,11 @@ func (mw *Middleware) broadcast(msg communication.Message) {
 
 // receive messages from other replicas
 func (mw *Middleware) receive() {
-	log.Println("replica ", mw.replica, " started receiving")
 	for {
-		log.Println("replica ", mw.replica, " waiting for message")
 		m1 := <-mw.channels[mw.replica]
 		m := m1.(communication.Message)
 
 		(m.Version).NewMutex()
-		log.Println("replica ", mw.replica, " received ", m, " from ", m.OriginID)
 
 		V_m := m.Version
 		j := m.OriginID
@@ -121,7 +118,6 @@ func (mw *Middleware) receive() {
 
 // checks DQ to see if new messages can be delivered
 func (mw *Middleware) deliver() {
-	log.Println("replica", mw.replica, "delivering from DQ: ", mw.DQ)
 	from := 0
 	to := 0
 	for {
@@ -170,7 +166,12 @@ func (mw *Middleware) updatestability(msg communication.Message) {
 	mw.SMap.Lock()
 	mw.SMap.m[StableDotKey{msg.OriginID, msg.Version.FindTicks(msg.OriginID)}] = StableDotValue{msg, mw.Ctr}
 	mw.SMap.Unlock()
-	if _, ok := mw.Min[msg.OriginID]; ok {
+
+	mw.Min.Lock()
+	_, ok := mw.Min.m[msg.OriginID]
+	mw.Min.Unlock()
+
+	if ok {
 		var NewStableVersion = mw.calculateStableVersion(msg.OriginID)
 		if NewStableVersion.Compare(mw.StableVersion) != communication.Equal {
 			StableDots := NewStableVersion.Subtract(mw.StableVersion)
@@ -183,7 +184,6 @@ func (mw *Middleware) updatestability(msg communication.Message) {
 // Order messages on stable dots and send the ones before stable vector to replica
 func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	var L []StableDotValue
-	log.Println("replica", mw.replica, "stable dots: ", StableDots)
 	for k, _ := range StableDots.GetMap() {
 		t := StableDots.FindTicks(k)
 		mw.SMap.Lock()
@@ -213,30 +213,24 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 // To overcome this problem the Min vector was created, by checking if the sender’s id is in it.
 // If it is not, then the minimums of the columns are the same and Min has not changed.
 func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
-	log.Printf("replica %s calculating stable version  [1] MUTEX: %p\n", mw.replica, &mw.StableVersion.RWMutex)
 	newStableVersion := mw.StableVersion.Copy()
-	log.Println("replica ", mw.replica, " calculating stable version  [2]")
-	for keyMin, _ := range mw.Min {
+	min := mw.Min
+	for keyMin, _ := range min.m {
 		if keyMin == j {
-			log.Println("replica ", mw.replica, " calculating stable version  [3]")
 			min := mw.Observed.GetTick(mw.replica, keyMin)
-			log.Println("replica ", mw.replica, " calculating stable version  [4]")
 			minRow := keyMin
-			for keyObs, _ := range mw.Observed.GetMap() {
-				log.Println("replica ", mw.replica, " calculating stable version  [5]")
+			obs := mw.Observed.GetMap()
+			for keyObs, _ := range obs {
 				if mw.Observed.GetTick(keyObs, keyMin) < min {
-					log.Println("replica ", mw.replica, " calculating stable version  [6]")
 					min = mw.Observed.GetTick(keyObs, keyMin)
 					minRow = keyObs
-					log.Println("replica ", mw.replica, " calculating stable version  [7]")
 				}
 			}
-			log.Println("replica ", mw.replica, " calculating stable version  [8]")
 			newStableVersion.Set(keyMin, min)
-			mw.Min[keyMin] = minRow
+			mw.Min.Lock()
+			mw.Min.m[keyMin] = minRow
+			mw.Min.Unlock()
 		}
-
 	}
-	log.Println("replica ", mw.replica, " calculating stable version  [9]")
 	return newStableVersion
 }

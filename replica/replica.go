@@ -43,17 +43,16 @@ func (r *Replica) TCBcast(operation int, value any) {
 	vv := r.VersionVector.Copy()
 	msg := communication.NewMessage(communication.DLV, operation, value, vv, r.id)
 	r.TCDeliver(msg)
-	log.Println("replica ", r.id, " broadcasted: ", msg)
 	r.middleware.Tcbcast <- msg
+	log.Println("replica ", r.id, " broadcasted ", msg)
 }
 
 // Dequeues a message that is ready to be delivered to the replica process.
 // Increments the sender's entry in the replica's version vector before calling the TCDeliver callback.
 func (r *Replica) dequeue() {
 	for {
-		log.Println("replica ", r.id, " dequeuing... ")
 		msg := <-r.middleware.DeliverCausal
-		log.Println("replica ", r.id, " dequeued: ", msg)
+		log.Println("replica ", r.id, " received ", msg, " from ", msg.OriginID)
 		if msg.Type == communication.DLV {
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)

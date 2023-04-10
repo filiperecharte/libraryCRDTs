@@ -1,8 +1,6 @@
 package communication
 
 import (
-	"bytes"
-	"fmt"
 	"sync"
 )
 
@@ -83,63 +81,6 @@ func (vc VClock) Tick(id string) {
 	vc.Unlock()
 }
 
-// LastUpdate returns the clock value of the oldest clock
-func (vc VClock) LastUpdate() (last uint64) {
-	vc.Lock()
-	for key := range vc.m {
-		if vc.m[key] > last {
-			last = vc.m[key]
-		}
-	}
-	vc.Unlock()
-	return last
-}
-
-// Merge takes the max of all clock values in other and updates the
-// values of the callee
-func (vc VClock) Merge(other VClock) {
-	vc.Lock()
-	other.Lock()
-	for id := range other.m {
-		if vc.m[id] < other.m[id] {
-			vc.m[id] = other.m[id]
-		}
-	}
-	vc.Unlock()
-	other.Unlock()
-}
-
-// PrintVC prints the callee's vector clock to stdout
-func (vc VClock) PrintVC() {
-	fmt.Println(vc.ReturnVCString())
-}
-
-// ReturnVCString returns a string encoding of a vector clock
-func (vc VClock) ReturnVCString() string {
-	//sort
-	vc.Lock()
-	ids := make([]string, len(vc.m))
-	i := 0
-	for id := range vc.m {
-		ids[i] = id
-		i++
-	}
-
-	//sort.Strings(ids)
-
-	var buffer bytes.Buffer
-	buffer.WriteString("{")
-	for i := range ids {
-		buffer.WriteString(fmt.Sprintf("\"%s\":%d", ids[i], vc.m[ids[i]]))
-		if i+1 < len(ids) {
-			buffer.WriteString(", ")
-		}
-	}
-	vc.Unlock()
-	buffer.WriteString("}")
-	return buffer.String()
-}
-
 // Equal returns true if the callee's clock is equal to the other clock
 func (vc VClock) Equals(other VClock) bool {
 	vc.Lock()
@@ -174,6 +115,8 @@ func (vc VClock) Compare(other VClock) Condition {
 					otherIs = Descendant
 					break
 				case Ancestor:
+					other.Unlock()
+					vc.Unlock()
 					return Concurrent
 				}
 			} else if other.m[id] < vc.m[id] {
@@ -182,13 +125,19 @@ func (vc VClock) Compare(other VClock) Condition {
 					otherIs = Ancestor
 					break
 				case Descendant:
+					other.Unlock()
+					vc.Unlock()
 					return Concurrent
 				}
 			}
 		} else {
 			if otherIs == Equal {
+				other.Unlock()
+				vc.Unlock()
 				return Concurrent
 			} else if len(other.m) <= len(vc.m) {
+				other.Unlock()
+				vc.Unlock()
 				return Concurrent
 			}
 		}
@@ -202,6 +151,8 @@ func (vc VClock) Compare(other VClock) Condition {
 					otherIs = Descendant
 					break
 				case Ancestor:
+					other.Unlock()
+					vc.Unlock()
 					return Concurrent
 				}
 			} else if other.m[id] < vc.m[id] {
@@ -210,20 +161,25 @@ func (vc VClock) Compare(other VClock) Condition {
 					otherIs = Ancestor
 					break
 				case Descendant:
+					other.Unlock()
+					vc.Unlock()
 					return Concurrent
 				}
 			}
 		} else {
 			if otherIs == Equal {
+				other.Unlock()
+				vc.Unlock()
 				return Concurrent
 			} else if len(vc.m) <= len(other.m) {
+				other.Unlock()
+				vc.Unlock()
 				return Concurrent
 			}
 		}
 	}
-	vc.Unlock()
 	other.Unlock()
-
+	vc.Unlock()
 	return otherIs
 }
 
@@ -238,8 +194,8 @@ func (vc VClock) Subtract(vc1 VClock) (subVC VClock) {
 	for key := range vc.m {
 		subVC.m[key] = vc.m[key] - vc1.m[key]
 	}
-	vc.Unlock()
 	vc1.Unlock()
+	vc.Unlock()
 	return subVC
 }
 

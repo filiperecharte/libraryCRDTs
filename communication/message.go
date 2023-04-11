@@ -46,11 +46,3 @@ func (e *Message) Equals(other *Message) bool {
 	return e.Version.Compare(other.Version) == Equal && e.Value == other.Value &&
 		e.OriginID == other.OriginID
 }
-
-// describe message in string format
-func (e *Message) String() string {
-	// improve string representation
-	// TODO
-
-	return "ORIGIN: " + string(e.OriginID) + " VCLOCK: " + e.Version.ReturnVCString()
-}

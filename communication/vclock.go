@@ -1,8 +1,7 @@
 package communication
 
 import (
-	"bytes"
-	"fmt"
+	"sync"
 )
 
 // Condition constants define how to compare a vector clock against another,
@@ -20,128 +19,110 @@ const (
 
 // VClock are maps of string to uint64 where the string is the
 // id of the process, and the uint64 is the clock value
-type VClock map[string]uint64
+type VClock struct {
+	*sync.RWMutex
+	m map[string]uint64
+}
 
 // FindTicks returns the clock value for a given id, if a value is not
 // found false is returned
-func (vc VClock) FindTicks(id string) (uint64, bool) {
-	ticks, ok := vc[id]
-	return ticks, ok
+func (vc VClock) FindTicks(id string) uint64 {
+	vc.Lock()
+	ticks, _ := vc.m[id]
+	vc.Unlock()
+	return ticks
 }
 
 // New returns a new vector clock
 func NewVClock() VClock {
-	return VClock{}
+	return VClock{
+		RWMutex: new(sync.RWMutex),
+		m:       make(map[string]uint64),
+	}
 }
 
 func InitVClock(ids []string) VClock {
 	vc := NewVClock()
 	for _, i := range ids {
-		vc[i] = 0
+		vc.m[i] = 0
 	}
 	return vc
 }
 
 // Copy returns a copy of the clock
 func (vc VClock) Copy() VClock {
-	cp := make(map[string]uint64, len(vc))
-	for key, value := range vc {
-		cp[key] = value
+	cp := NewVClock()
+	vc.Lock()
+	for key, value := range vc.m {
+		cp.m[key] = value
 	}
+	vc.Unlock()
 	return cp
-}
-
-// CopyFromMap copies a map to a vector clock
-func (vc VClock) CopyFromMap(otherMap map[string]uint64) VClock {
-	return otherMap
 }
 
 // GetMap returns the map typed vector clock
 func (vc VClock) GetMap() map[string]uint64 {
-	return map[string]uint64(vc)
+	vc.Lock()
+	defer vc.Unlock()
+	return map[string]uint64(vc.m)
 }
 
 // Set assigns a clock value to a clock index
 func (vc VClock) Set(id string, ticks uint64) {
-	vc[id] = ticks
+	vc.Lock()
+	vc.m[id] = ticks
+	vc.Unlock()
 }
 
 // Tick has replaced the old update
 func (vc VClock) Tick(id string) {
-	vc[id] = vc[id] + 1
+	vc.Lock()
+	vc.m[id] = vc.m[id] + 1
+	vc.Unlock()
 }
 
-// LastUpdate returns the clock value of the oldest clock
-func (vc VClock) LastUpdate() (last uint64) {
-	for key := range vc {
-		if vc[key] > last {
-			last = vc[key]
+// VClockEqual returns true if the two vector clocks are equal.
+func (vc VClock) Equal(vc1 VClock) bool {
+	vc.Lock()
+	defer vc.Unlock()
+	vc1.Lock()
+	defer vc1.Unlock()
+
+	if len(vc.m) != len(vc1.m) {
+		return false
+	}
+
+	for id, val := range vc.m {
+		if vc1Val, found := vc1.m[id]; !found || vc1Val != val {
+			return false
 		}
 	}
-	return last
-}
 
-// Merge takes the max of all clock values in other and updates the
-// values of the callee
-func (vc VClock) Merge(other VClock) {
-	for id := range other {
-		if vc[id] < other[id] {
-			vc[id] = other[id]
-		}
-	}
-}
-
-// PrintVC prints the callee's vector clock to stdout
-func (vc VClock) PrintVC() {
-	fmt.Println(vc.ReturnVCString())
-}
-
-// ReturnVCString returns a string encoding of a vector clock
-func (vc VClock) ReturnVCString() string {
-	//sort
-	ids := make([]string, len(vc))
-	i := 0
-	for id := range vc {
-		ids[i] = id
-		i++
-	}
-
-	//sort.Strings(ids)
-
-	var buffer bytes.Buffer
-	buffer.WriteString("{")
-	for i := range ids {
-		buffer.WriteString(fmt.Sprintf("\"%s\":%d", ids[i], vc[ids[i]]))
-		if i+1 < len(ids) {
-			buffer.WriteString(", ")
-		}
-	}
-	buffer.WriteString("}")
-	return buffer.String()
-}
-
-// Equal returns true if the callee's clock is equal to the other clock
-func (vc VClock) Equals(other VClock) bool {
-	return vc.Compare(other) == Equal
+	return true
 }
 
 // Compare takes another clock and determines if it is Equal,
 // Ancestor, Descendant, or Concurrent with the callee's clock.
 func (vc VClock) Compare(other VClock) Condition {
 	var otherIs Condition
+	vc.Lock()
+	defer vc.Unlock()
+	other.Lock()
+	defer other.Unlock()
+
 	// Preliminary qualification based on length
-	if len(vc) > len(other) {
+	if len(vc.m) > len(other.m) {
 		otherIs = Ancestor
-	} else if len(vc) < len(other) {
+	} else if len(vc.m) < len(other.m) {
 		otherIs = Descendant
 	} else {
 		otherIs = Equal
 	}
 
 	// Compare matching items
-	for id := range other {
-		if _, found := vc[id]; found {
-			if other[id] > vc[id] {
+	for id := range other.m {
+		if _, found := vc.m[id]; found {
+			if other.m[id] > vc.m[id] {
 				switch otherIs {
 				case Equal:
 					otherIs = Descendant
@@ -149,7 +130,7 @@ func (vc VClock) Compare(other VClock) Condition {
 				case Ancestor:
 					return Concurrent
 				}
-			} else if other[id] < vc[id] {
+			} else if other.m[id] < vc.m[id] {
 				switch otherIs {
 				case Equal:
 					otherIs = Ancestor
@@ -161,15 +142,15 @@ func (vc VClock) Compare(other VClock) Condition {
 		} else {
 			if otherIs == Equal {
 				return Concurrent
-			} else if len(other) <= len(vc) {
+			} else if len(other.m) <= len(vc.m) {
 				return Concurrent
 			}
 		}
 	}
 
-	for id := range vc {
-		if _, found := other[id]; found {
-			if other[id] > vc[id] {
+	for id := range vc.m {
+		if _, found := other.m[id]; found {
+			if other.m[id] > vc.m[id] {
 				switch otherIs {
 				case Equal:
 					otherIs = Descendant
@@ -177,7 +158,7 @@ func (vc VClock) Compare(other VClock) Condition {
 				case Ancestor:
 					return Concurrent
 				}
-			} else if other[id] < vc[id] {
+			} else if other.m[id] < vc.m[id] {
 				switch otherIs {
 				case Equal:
 					otherIs = Ancestor
@@ -189,20 +170,31 @@ func (vc VClock) Compare(other VClock) Condition {
 		} else {
 			if otherIs == Equal {
 				return Concurrent
-			} else if len(vc) <= len(other) {
+			} else if len(vc.m) <= len(other.m) {
 				return Concurrent
 			}
 		}
 	}
-
 	return otherIs
 }
 
 // Subtract on vector clock from another
 func (vc VClock) Subtract(vc1 VClock) (subVC VClock) {
-	subVC = make(map[string]uint64)
-	for key := range vc {
-		subVC[key] = vc[key] - vc1[key]
+	subVC = VClock{
+		RWMutex: new(sync.RWMutex),
+		m:       make(map[string]uint64),
 	}
+	vc.Lock()
+	vc1.Lock()
+	for key := range vc.m {
+		subVC.m[key] = vc.m[key] - vc1.m[key]
+	}
+	vc1.Unlock()
+	vc.Unlock()
 	return subVC
+}
+
+// creates new mutex for vector clock
+func (vc *VClock) NewMutex() {
+	vc.RWMutex = new(sync.RWMutex)
 }

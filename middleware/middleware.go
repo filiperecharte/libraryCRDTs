@@ -174,7 +174,7 @@ func (mw *Middleware) updatestability(msg communication.Message) {
 
 	if ok {
 		var NewStableVersion = mw.calculateStableVersion(msg.OriginID)
-		if NewStableVersion.Compare(mw.StableVersion) != communication.Equal {
+		if !NewStableVersion.Equal(mw.StableVersion) {
 			StableDots := NewStableVersion.Subtract(mw.StableVersion)
 			mw.stabilize(StableDots)
 			mw.StableVersion = NewStableVersion.Copy()

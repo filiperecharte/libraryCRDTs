@@ -81,14 +81,24 @@ func (vc VClock) Tick(id string) {
 	vc.Unlock()
 }
 
-// Equal returns true if the callee's clock is equal to the other clock
-func (vc VClock) Equals(other VClock) bool {
+// VClockEqual returns true if the two vector clocks are equal.
+func (vc VClock) Equal(vc1 VClock) bool {
 	vc.Lock()
-	other.Lock()
-	res := vc.Compare(other)
-	vc.Unlock()
-	other.Unlock()
-	return res == Equal
+	defer vc.Unlock()
+	vc1.Lock()
+	defer vc1.Unlock()
+
+	if len(vc.m) != len(vc1.m) {
+		return false
+	}
+
+	for id, val := range vc.m {
+		if vc1Val, found := vc1.m[id]; !found || vc1Val != val {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Compare takes another clock and determines if it is Equal,
@@ -99,7 +109,7 @@ func (vc VClock) Compare(other VClock) Condition {
 	defer vc.Unlock()
 	other.Lock()
 	defer other.Unlock()
-	
+
 	// Preliminary qualification based on length
 	if len(vc.m) > len(other.m) {
 		otherIs = Ancestor

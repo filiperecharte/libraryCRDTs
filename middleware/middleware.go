@@ -191,6 +191,7 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 		if _, ok := mw.SMap.m[StableDotKey{k, t}]; ok {
 			L = append(L, mw.SMap.m[StableDotKey{k, t}])
 		}
+		mw.SMap.Unlock()
 
 	}
 	sort.Slice(L, func(i, j int) bool {
@@ -228,6 +229,7 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 					minRow = keyObs
 				}
 			}
+			mw.Observed.Unlock()
 
 			newStableVersion.Set(keyMin, min)
 

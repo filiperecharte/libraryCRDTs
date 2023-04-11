@@ -52,8 +52,8 @@ func (r *Replica) TCBcast(operation int, value any) {
 func (r *Replica) dequeue() {
 	for {
 		msg := <-r.middleware.DeliverCausal
-		log.Println("replica ", r.id, " received ", msg, " from ", msg.OriginID)
 		if msg.Type == communication.DLV {
+			log.Println("replica ", r.id, " received ", msg, " from ", msg.OriginID)
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)
 			r.TCDeliver(msg)

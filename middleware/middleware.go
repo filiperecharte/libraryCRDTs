@@ -96,8 +96,7 @@ func (mw *Middleware) receive() {
 	for {
 		m1 := <-mw.channels[mw.replica]
 		m := m1.(communication.Message)
-
-		(m.Version).NewMutex()
+		(m.Version).NewMutex() //because messages save pointers do mutexes
 
 		V_m := m.Version
 		j := m.OriginID
@@ -135,9 +134,11 @@ func (mw *Middleware) deliver() {
 			msg := mw.DQ[from]
 			if msg.Version.FindTicks(msg.OriginID) == mw.DeliveredVersion.FindTicks(msg.OriginID)+1 && allCausalPredecessorsDelivered(msg.Version, mw.DeliveredVersion, msg.OriginID) {
 				mw.DeliveredVersion.Tick(msg.OriginID)
-				mw.DeliverCausal <- communication.NewMessage(communication.DLV, msg.Operation, msg.Value, msg.Version, msg.OriginID)
+				msg := communication.NewMessage(communication.DLV, msg.Operation, msg.Value, msg.Version, msg.OriginID)
+				mw.DeliverCausal <- msg
+				mw.updatestability(msg)
 			} else {
-				mw.DQ[from] = mw.DQ[to]
+				mw.DQ[to] = mw.DQ[from]
 				to++
 			}
 			from++
@@ -219,14 +220,19 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 		if keyMin == j {
 			min := mw.Observed.GetTick(mw.replica, keyMin)
 			minRow := keyMin
+
 			obs := mw.Observed.GetMap()
+			mw.Observed.Lock()
 			for keyObs, _ := range obs {
-				if mw.Observed.GetTick(keyObs, keyMin) < min {
-					min = mw.Observed.GetTick(keyObs, keyMin)
+				if mw.Observed.m[keyObs].FindTicks(keyMin) < min {
+					min = mw.Observed.m[keyObs].FindTicks(keyMin)
 					minRow = keyObs
 				}
 			}
+			mw.Observed.Unlock()
+
 			newStableVersion.Set(keyMin, min)
+
 			mw.Min.Lock()
 			mw.Min.m[keyMin] = minRow
 			mw.Min.Unlock()

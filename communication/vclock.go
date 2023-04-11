@@ -96,7 +96,10 @@ func (vc VClock) Equals(other VClock) bool {
 func (vc VClock) Compare(other VClock) Condition {
 	var otherIs Condition
 	vc.Lock()
+	defer vc.Unlock()
 	other.Lock()
+	defer other.Unlock()
+	
 	// Preliminary qualification based on length
 	if len(vc.m) > len(other.m) {
 		otherIs = Ancestor
@@ -115,8 +118,6 @@ func (vc VClock) Compare(other VClock) Condition {
 					otherIs = Descendant
 					break
 				case Ancestor:
-					other.Unlock()
-					vc.Unlock()
 					return Concurrent
 				}
 			} else if other.m[id] < vc.m[id] {
@@ -125,19 +126,13 @@ func (vc VClock) Compare(other VClock) Condition {
 					otherIs = Ancestor
 					break
 				case Descendant:
-					other.Unlock()
-					vc.Unlock()
 					return Concurrent
 				}
 			}
 		} else {
 			if otherIs == Equal {
-				other.Unlock()
-				vc.Unlock()
 				return Concurrent
 			} else if len(other.m) <= len(vc.m) {
-				other.Unlock()
-				vc.Unlock()
 				return Concurrent
 			}
 		}
@@ -151,8 +146,6 @@ func (vc VClock) Compare(other VClock) Condition {
 					otherIs = Descendant
 					break
 				case Ancestor:
-					other.Unlock()
-					vc.Unlock()
 					return Concurrent
 				}
 			} else if other.m[id] < vc.m[id] {
@@ -161,25 +154,17 @@ func (vc VClock) Compare(other VClock) Condition {
 					otherIs = Ancestor
 					break
 				case Descendant:
-					other.Unlock()
-					vc.Unlock()
 					return Concurrent
 				}
 			}
 		} else {
 			if otherIs == Equal {
-				other.Unlock()
-				vc.Unlock()
 				return Concurrent
 			} else if len(vc.m) <= len(other.m) {
-				other.Unlock()
-				vc.Unlock()
 				return Concurrent
 			}
 		}
 	}
-	other.Unlock()
-	vc.Unlock()
 	return otherIs
 }
 

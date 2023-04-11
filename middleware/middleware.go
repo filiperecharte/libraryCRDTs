@@ -3,6 +3,7 @@ package middleware
 import (
 	"library/packages/communication"
 	"library/packages/utils"
+	"log"
 	"sort"
 	"sync"
 )
@@ -158,18 +159,21 @@ func allCausalPredecessorsDelivered(V_m, V_i communication.VClock, j string) boo
 
 // Updates observed matrix and counter, finds stable version and send stable messages
 func (mw *Middleware) updatestability(msg communication.Message) {
-	mw.Observed.SetVClock(mw.replica, mw.DeliveredVersion)
+	mw.Observed.SetVClock(mw.replica, mw.DeliveredVersion) //updates current replica with its own version
 	if mw.replica != msg.OriginID {
-		mw.Observed.SetVClock(msg.OriginID, mw.DeliveredVersion)
+		mw.Observed.SetVClock(msg.OriginID, msg.Version) //updates observed matrix with the version of the received message
 	}
 	mw.Ctr++
 
+	//delivered messages but not yet stable are stored in SMap
 	mw.SMap.Lock()
 	mw.SMap.m[StableDotKey{msg.OriginID, msg.Version.FindTicks(msg.OriginID)}] = StableDotValue{msg, mw.Ctr}
 	mw.SMap.Unlock()
 
+	// Min is a map of ids (rows) that contain the id of the replica (column) with the minimum version in that row
+	//check if sender is in Min, if it is not, then the minimums of the columns are the same and SV hasn't change
 	mw.Min.Lock()
-	_, ok := mw.Min.m[msg.OriginID]
+	ok := utils.MapValueExists(mw.Min.m, msg.OriginID)
 	mw.Min.Unlock()
 
 	if ok {
@@ -185,8 +189,8 @@ func (mw *Middleware) updatestability(msg communication.Message) {
 // Order messages on stable dots and send the ones before stable vector to replica
 func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	var L []StableDotValue
-	for k, _ := range StableDots.GetMap() {
-		t := StableDots.FindTicks(k)
+	for k, t := range StableDots.GetMap() {
+
 		mw.SMap.Lock()
 		if _, ok := mw.SMap.m[StableDotKey{k, t}]; ok {
 			L = append(L, mw.SMap.m[StableDotKey{k, t}])
@@ -200,10 +204,10 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	for _, stableDot := range L {
 		stableDot.msg.SetType(communication.STB)
 		mw.DeliverCausal <- stableDot.msg
+		log.Println("REPLICA", mw.replica, "STABLE MESSAGE ", stableDot.msg)
 	}
 	//removes stable dots from SMap
-	for k, _ := range StableDots.GetMap() {
-		t := StableDots.FindTicks(k)
+	for k, t := range StableDots.GetMap() {
 		mw.SMap.Lock()
 		delete(mw.SMap.m, StableDotKey{k, t})
 		mw.SMap.Unlock()
@@ -218,10 +222,11 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 	min := mw.Min
 	for keyMin, _ := range min.m {
 		if keyMin == j {
-			min := mw.Observed.GetTick(mw.replica, keyMin)
+			min := mw.Observed.GetTick(j, keyMin)
 			minRow := keyMin
 
 			obs := mw.Observed.GetMap()
+
 			mw.Observed.Lock()
 			for keyObs, _ := range obs {
 				if mw.Observed.m[keyObs].FindTicks(keyMin) < min {

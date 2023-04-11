@@ -17,3 +17,13 @@ func InitMin(ids []string) map[string]string {
 	}
 	return vc
 }
+
+// MapValueExists returns true if the given value exists in the values of the map.
+func MapValueExists(m map[string]string, value string) bool {
+	for _, v := range m {
+		if v == value || v == "" {
+			return true
+		}
+	}
+	return false
+}

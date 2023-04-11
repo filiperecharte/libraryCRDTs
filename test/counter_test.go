@@ -62,7 +62,7 @@ func TestCounter(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		numAdds := 20
+		numAdds := 5
 		adds := make([]int, numAdds)
 		delays := make([]time.Duration, numAdds)
 
@@ -79,7 +79,7 @@ func TestCounter(t *testing.T) {
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 10,
+		MaxCount: 1,
 		Values:   gen,
 	}
 

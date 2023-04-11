@@ -1,13 +1,14 @@
 package crdts
 
 import (
-	"fmt"
 	"library/packages/communication"
 	"library/packages/replica"
+	"log"
 )
 
 type Counter struct {
-	state int
+	state  int
+	stable []communication.Message
 }
 
 func (r *Counter) TCDeliver(msg communication.Message) {
@@ -15,7 +16,8 @@ func (r *Counter) TCDeliver(msg communication.Message) {
 }
 
 func (r *Counter) TCStable(msg communication.Message) {
-	fmt.Println("Ignoring received stable operation: ", msg)
+	r.stable = append(r.stable, msg)
+	log.Println("STABLE", r.stable)
 }
 
 func (r *Counter) Query() interface{} {

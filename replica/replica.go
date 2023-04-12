@@ -44,7 +44,7 @@ func (r *Replica) TCBcast(operation int, value any) {
 	msg := communication.NewMessage(communication.DLV, operation, value, vv, r.id)
 	r.TCDeliver(msg)
 	r.middleware.Tcbcast <- msg
-	log.Println("replica ", r.id, " broadcasted ", msg)
+	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 }
 
 // Dequeues a message that is ready to be delivered to the replica process.
@@ -53,11 +53,12 @@ func (r *Replica) dequeue() {
 	for {
 		msg := <-r.middleware.DeliverCausal
 		if msg.Type == communication.DLV {
-			log.Println("replica ", r.id, " received ", msg, " from ", msg.OriginID)
+			log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)
 			r.TCDeliver(msg)
 		} else if msg.Type == communication.STB {
+			log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 			r.TCStable(msg)
 		}
 	}

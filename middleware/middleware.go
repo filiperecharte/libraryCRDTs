@@ -3,7 +3,6 @@ package middleware
 import (
 	"library/packages/communication"
 	"library/packages/utils"
-	"log"
 	"sort"
 	"sync"
 )
@@ -204,7 +203,6 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	for _, stableDot := range L {
 		stableDot.msg.SetType(communication.STB)
 		mw.DeliverCausal <- stableDot.msg
-		log.Println("REPLICA", mw.replica, "STABLE MESSAGE ", stableDot.msg)
 	}
 	//removes stable dots from SMap
 	for k, t := range StableDots.GetMap() {
@@ -214,7 +212,7 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	}
 }
 
-// Calculating the Stable vector every time Observed is updated can become costly, specially when dealing with large groups.
+// Calculating the Stable vector every time Observed is updated can ecome costly, specially when dealing with large groups.
 // To overcome this problem the Min vector was created, by checking if the sender’s id is in it.
 // If it is not, then the minimums of the columns are the same and Min has not changed.
 func (mw *Middleware) calculateStableVersion(j string) communication.VClock {

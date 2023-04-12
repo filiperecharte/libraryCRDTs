@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestCounter(t *testing.T) {
+func TestMVRegister(t *testing.T) {
 
 	// Define property to test
 	property := func(adds []int, delays []time.Duration, numReplicas int) bool {

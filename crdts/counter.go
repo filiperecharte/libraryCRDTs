@@ -3,21 +3,18 @@ package crdts
 import (
 	"library/packages/communication"
 	"library/packages/replica"
-	"log"
 )
 
 type Counter struct {
-	state  int
-	stable []communication.Message
+	state []int
 }
 
 func (r *Counter) TCDeliver(msg communication.Message) {
-	r.state += msg.Value.(int)
+	r.state = append(r.state, msg.Value.(int))
 }
 
 func (r *Counter) TCStable(msg communication.Message) {
-	r.stable = append(r.stable, msg)
-	log.Println("STABLE", r.stable)
+	//ignore
 }
 
 func (r *Counter) Query() interface{} {
@@ -27,7 +24,7 @@ func (r *Counter) Query() interface{} {
 // initialize counter
 func NewCounter(id string, channels map[string]chan interface{}) *replica.Replica {
 	c := &Counter{
-		state: 0,
+		state: []int{},
 	}
 
 	return replica.NewReplica(id, c, channels)

@@ -29,7 +29,7 @@ func (r *PNCounter) Query() interface{} {
 
 // initialize counter
 func NewPNCounter(id string, channels map[string]chan interface{}) *replica.Replica {
-	c := &Counter{
+	c := &PNCounter{
 		state: 0,
 	}
 

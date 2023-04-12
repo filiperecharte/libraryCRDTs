@@ -6,11 +6,11 @@ import (
 )
 
 type Counter struct {
-	state []int
+	state int
 }
 
 func (r *Counter) TCDeliver(msg communication.Message) {
-	r.state = append(r.state, msg.Value.(int))
+	r.state += msg.Value.(int)
 }
 
 func (r *Counter) TCStable(msg communication.Message) {
@@ -24,7 +24,7 @@ func (r *Counter) Query() interface{} {
 // initialize counter
 func NewCounter(id string, channels map[string]chan interface{}) *replica.Replica {
 	c := &Counter{
-		state: []int{},
+		state: 0,
 	}
 
 	return replica.NewReplica(id, c, channels)

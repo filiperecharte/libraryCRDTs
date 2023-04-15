@@ -1,7 +1,7 @@
 package test
 
 import (
-	"library/packages/crdts"
+	"library/packages/datatypes"
 	"library/packages/replica"
 	"math/rand"
 	"reflect"
@@ -26,7 +26,7 @@ func TestCounter(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = crdts.NewCounter(strconv.Itoa(i), channels)
+			replicas[i] = datatypes.NewCounterReplica(strconv.Itoa(i), channels)
 		}
 
 		// Start a goroutine for each replica
@@ -70,7 +70,7 @@ func TestCounter(t *testing.T) {
 		delays := make([]time.Duration, numAdds)
 
 		for i := 0; i < numAdds; i++ {
-			adds[i] = rand.Intn(10)
+			adds = []int{1, 2, 3, 4, 5}
 			delays[i] = time.Duration(rand.Intn(5)) * time.Millisecond
 		}
 

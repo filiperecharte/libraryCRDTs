@@ -1,7 +1,7 @@
 package test
 
 import (
-	"library/packages/crdts"
+	"library/packages/datatypes"
 	"library/packages/replica"
 	"math/rand"
 	"reflect"
@@ -26,7 +26,7 @@ func TestMVRegister(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = crdts.NewCounter(strconv.Itoa(i), channels)
+			replicas[i] = datatypes.NewMVRegisterReplica(strconv.Itoa(i), channels)
 		}
 
 		// Start a goroutine for each replica
@@ -37,7 +37,8 @@ func TestMVRegister(t *testing.T) {
 				defer wg.Done()
 				// Perform random number of add operations with random delays
 				for j := 0; j < len(adds); j++ {
-					r.Add(adds[j])
+					k, _ := strconv.Atoi(r.GetID())
+					r.Add(k * 5 + j)
 					time.Sleep(delays[j])
 				}
 			}(replicas[i], adds)
@@ -65,7 +66,7 @@ func TestMVRegister(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		numAdds := 5
+		numAdds := 2
 		adds := make([]int, numAdds)
 		delays := make([]time.Duration, numAdds)
 

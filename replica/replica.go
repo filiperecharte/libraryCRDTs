@@ -2,7 +2,6 @@ package replica
 
 import (
 	"library/packages/communication"
-	"library/packages/crdt"
 	"library/packages/middleware"
 	"library/packages/utils"
 	"log"
@@ -10,25 +9,40 @@ import (
 
 //type ReplicaID string
 
+type CrdtI interface {
+
+	// The TCDeliver callback function is called when a message is ready to be delivered.
+	//effect
+	TCDeliver(msg communication.Message)
+
+	// The TCStable callback function is called when a message is set to stable.
+	//stabilize
+	TCStable(msg communication.Message)
+
+	// Query made by a client to a replica that returns the current state of the CRDT
+	// after applying the unstable operations into the CRDT stable state
+	Query() any
+}
+
 type Replica struct {
-	id       string
-	replicas map[string]chan interface{}
-	crdt.Crdt
+	crdt          CrdtI
+	id            string
+	replicas      map[string]chan interface{}
 	middleware    *middleware.Middleware
 	VersionVector communication.VClock
 }
 
-func NewReplica(id string, crdt crdt.Crdt, channels map[string]chan interface{}) *Replica {
+func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}) *Replica {
 	//initialize replica state
 
 	ids := utils.MapToKeys(channels)
 
 	r := &Replica{
-		id,
-		channels,
-		crdt,
-		middleware.NewMiddleware(id, ids, channels),
-		communication.InitVClock(ids), //delivered version vector
+		id:            id,
+		crdt:          crdt,
+		replicas:      channels,
+		middleware:    middleware.NewMiddleware(id, ids, channels),
+		VersionVector: communication.InitVClock(ids), //delivered version vector
 	}
 
 	go r.dequeue()
@@ -42,7 +56,7 @@ func (r *Replica) TCBcast(operation int, value any) {
 	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
 	msg := communication.NewMessage(communication.DLV, operation, value, vv, r.id)
-	r.TCDeliver(msg)
+	r.crdt.TCDeliver(msg)
 	r.middleware.Tcbcast <- msg
 	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 }
@@ -56,10 +70,10 @@ func (r *Replica) dequeue() {
 			log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)
-			r.TCDeliver(msg)
+			r.crdt.TCDeliver(msg)
 		} else if msg.Type == communication.STB {
-			log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
-			r.TCStable(msg)
+			//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+			r.crdt.TCStable(msg)
 		}
 	}
 }
@@ -82,4 +96,12 @@ func (r *Replica) Add(value any) {
 
 func (r *Replica) Remove(value any) {
 	r.TCBcast(communication.REM, value)
+}
+
+func (r *Replica) Query() any {
+	return r.crdt.Query()
+}
+
+func (r *Replica) GetID() string {
+	return r.id
 }

@@ -47,12 +47,10 @@ type Middleware struct {
 // creates middleware state
 func NewMiddleware(id string, ids []string, channels map[string]chan interface{}) *Middleware {
 
-	groupSize := len(ids)
-
 	mw := &Middleware{
 		replica:          id,
 		channels:         channels,
-		groupSize:        groupSize,
+		groupSize:        len(ids),
 		DeliveredVersion: communication.InitVClock(ids),
 		ReceivedVersion:  communication.InitVClock(ids),
 		Tcbcast:          make(chan communication.Message),
@@ -86,7 +84,9 @@ func (mw *Middleware) dequeue() {
 func (mw *Middleware) broadcast(msg communication.Message) {
 	for id, ch := range mw.channels {
 		if mw.replica != id {
-			go func(newCh chan interface{}) { newCh <- msg }(ch)
+			go func(newCh chan interface{}) {
+				newCh <- msg
+			}(ch)
 		}
 	}
 }
@@ -95,13 +95,14 @@ func (mw *Middleware) broadcast(msg communication.Message) {
 func (mw *Middleware) receive() {
 	for {
 		m1 := <-mw.channels[mw.replica]
+
 		m := m1.(communication.Message)
 		(m.Version).NewMutex() //because messages save pointers do mutexes
 
 		V_m := m.Version
 		j := m.OriginID
 
-		//if mw.ReceivedVersion[j] < V_m[j] { // communication.Messages from the same replica cannot be delivered out of order otherwise they are ignored
+		//if mw.ReceivedVersion.FindTicks(j) < V_m.FindTicks(j) { // communication.Messages from the same replica cannot be delivered out of order otherwise they are ignored
 		mw.ReceivedVersion.Tick(j)
 		if V_m.FindTicks(j) == mw.DeliveredVersion.FindTicks(j)+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
 			mw.DeliveredVersion.Tick(j)

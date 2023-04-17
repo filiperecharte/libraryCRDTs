@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestMVRegister(t *testing.T) {
+func TestRGA(t *testing.T) {
 
 	// Define property to test
 	property := func(adds []int, delays []time.Duration, numReplicas int) bool {
@@ -26,7 +26,7 @@ func TestMVRegister(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewMVRegisterReplica(strconv.Itoa(i), channels)
+			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels)
 		}
 
 		// Start a goroutine for each replica
@@ -38,9 +38,13 @@ func TestMVRegister(t *testing.T) {
 				// Perform random number of add operations with random delays
 				for j := 0; j < len(adds); j++ {
 					k, _ := strconv.Atoi(r.GetID())
-					r.Add(k * 5 + j)
+					r.Add(datatypes.Operation{
+						After: datatypes.Position{I: k, ID: r.GetID()}, 
+						At: datatypes.Position{I: k + 1, ID: r.GetID()}, 
+						Value: adds[j],
+					})
 					time.Sleep(delays[j])
-				}
+				}	
 			}(replicas[i], adds)
 		}
 

@@ -4,44 +4,45 @@ import (
 	"library/packages/communication"
 	"library/packages/crdt"
 	"library/packages/replica"
+	"log"
 	"math"
 )
 
 type Position struct {
-	i  int
-	id string
+	I  int
+	ID string
 }
 
 type Vertex struct {
-	ptr   Position
-	value any
+	Ptr   Position
+	Value any
 }
 
 type Operation struct {
-	after Position
-	at    Position
-	value any
+	After Position
+	At    Position
+	Value any
 }
 
 type RGA struct {
 	sequencer Position
 }
 
-func (r *RGA) Apply(state any, operations []any) any {
+func (r RGA) Apply(state any, operations []any) any {
 	st := state.([]Vertex)
 	for _, op := range operations {
 		msgOP := op.(communication.Message)
-		switch msgOP.Type {
+		switch msgOP.Operation {
 		case communication.ADD:
 			// find index where predecessor vertex can be found
-			predecessorIdx := indexOfVPtr(msgOP.Value.(Operation).after, st)
+			predecessorIdx := indexOfVPtr(msgOP.Value.(Operation).After, st)
 			// adjust index where new vertex is to be inserted when concurrent insertions for the same predecessor occur
-			insertIdx := shift(predecessorIdx+1, msgOP.Value.(Operation).at, st)
+			insertIdx := shift(predecessorIdx+1, msgOP.Value.(Operation).At, st)
 			// update RGA to store the highest observed sequence number
-			seqNr := r.sequencer.i
-			replicaId := r.sequencer.id
-			nextSeqNr := Position{int(math.Max(float64(msgOP.Value.(Operation).at.i), float64(seqNr))), replicaId}
-			newVertex := Vertex{msgOP.Value.(Operation).at, msgOP.Value.(Operation).value}
+			seqNr := r.sequencer.I
+			replicaId := r.sequencer.ID
+			nextSeqNr := Position{int(math.Max(float64(msgOP.Value.(Operation).At.I), float64(seqNr))), replicaId}
+			newVertex := Vertex{msgOP.Value.(Operation).At, msgOP.Value.(Operation).Value}
 			newVertices := append(st, Vertex{})
 			copy(newVertices[insertIdx+1:], newVertices[insertIdx:])
 			newVertices[insertIdx] = newVertex
@@ -51,9 +52,10 @@ func (r *RGA) Apply(state any, operations []any) any {
 
 			break
 		case communication.REM:
+			log.Println("Received REM operation: ", msgOP.Value.(Operation).At)
 			// find index where removed vertex can be found and clear its content to tombstone it
-			index := indexOfVPtr(msgOP.Value.(Operation).at, st)
-			st[index] = Vertex{msgOP.Value.(Operation).at, nil}
+			index := indexOfVPtr(msgOP.Value.(Operation).At, st)
+			st[index] = Vertex{msgOP.Value.(Operation).At, nil}
 
 			break
 		}
@@ -63,7 +65,7 @@ func (r *RGA) Apply(state any, operations []any) any {
 }
 
 // initialize RGA
-func NewRGReplica(id string, channels map[string]chan any) *replica.Replica {
+func NewRGAReplica(id string, channels map[string]chan any) *replica.Replica {
 	r := crdt.CommutativeCRDT{Data: &RGA{}, Stable_st: []Vertex{}}
 
 	return replica.NewReplica(id, &r, channels)
@@ -71,7 +73,7 @@ func NewRGReplica(id string, channels map[string]chan any) *replica.Replica {
 
 func indexOfVPtr(ptr Position, vertices []Vertex) int {
 	for i, vertex := range vertices {
-		if vertex.ptr == ptr {
+		if vertex.Ptr == ptr {
 			return i
 		}
 	}
@@ -82,8 +84,8 @@ func shift(offset int, ptr Position, vertices []Vertex) int {
 	if offset >= len(vertices) {
 		return offset
 	}
-	next := vertices[offset].ptr
-	if next.i < ptr.i {
+	next := vertices[offset].Ptr
+	if next.I < ptr.I {
 		return offset
 	}
 	return shift(offset+1, ptr, vertices)

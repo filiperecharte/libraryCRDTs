@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"library/packages/crdts"
+	"library/packages/datatypes"
 	"library/packages/replica"
 	"os"
 	"strconv"
@@ -19,9 +19,9 @@ func main() {
 	}
 
 	// create Replicas and assign CRDT
-	counter1 := crdts.NewCounter("1", channels)
-	counter2 := crdts.NewCounter("2", channels)
-	counter3 := crdts.NewCounter("3", channels)
+	counter1 := datatypes.NewCounterReplica("1", channels)
+	counter2 := datatypes.NewCounterReplica("2", channels)
+	counter3 := datatypes.NewCounterReplica("3", channels)
 
 	counters := []*replica.Replica{counter1, counter2, counter3}
 

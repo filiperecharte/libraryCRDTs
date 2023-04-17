@@ -6,7 +6,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
-//data interface
+// data interface
 type EcroDataI interface {
 	// Apply `operations` to a given `state`.
 	// All `operations` are unstable.
@@ -16,37 +16,48 @@ type EcroDataI interface {
 	Order(operations mapset.Set[any]) mapset.Set[any]
 
 	//Operations that commute
-	Commutes(op1 any, operations mapset.Set[any]) bool
+	Commutes(op1 any, op2 any) bool
 }
 
 type EcroCRDT struct {
-	data EcroDataI //data interface
-	stable_st           any
-	unstable_operations mapset.Set[any]
-	unstable_st         any
+	Data                EcroDataI //data interface
+	Stable_st           any       // stable state
+	Unstable_operations mapset.Set[any]
+	Unstable_st         any //most recent state
 }
 
 func (r *EcroCRDT) TCDeliver(msg communication.Message) {
-	if r.after(msg.Value, r.unstable_operations) {
-		r.unstable_st = r.data.Apply(r.unstable_st, mapset.NewSet(msg.Value))
-		r.unstable_operations.Add(msg.Value)
+	if r.after(msg.Value, r.Unstable_operations) {
+		r.Unstable_st = r.Data.Apply(r.Unstable_st, mapset.NewSet(msg.Value))
+		r.Unstable_operations.Add(msg.Value)
 	} else {
-		r.unstable_operations.Add(msg.Value)
-		r.unstable_st = r.data.Apply(r.stable_st, r.data.Order(r.unstable_operations))
+		r.Unstable_operations.Add(msg.Value)
+		r.Unstable_st = r.Data.Apply(r.Stable_st, r.Data.Order(r.Unstable_operations))
 	}
 }
 
 func (r *EcroCRDT) TCStable(msg communication.Message) {
-	r.data.Apply(r.stable_st, mapset.NewSet(msg.Value))
+	r.Unstable_operations.Remove(msg.Value)
+	r.Data.Apply(r.Stable_st, mapset.NewSet(msg.Value))
 }
 
 func (r *EcroCRDT) Query() any {
-	return r.unstable_st
+	return r.Unstable_st
+}
+
+// checks if op commutes with all unstable concurrent operations
+func (r *EcroCRDT) commutes(op any, operations mapset.Set[any]) bool {
+	for _, op2 := range operations.ToSlice() {
+		if !r.Data.Commutes(op, op2) {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *EcroCRDT) after(op any, operations mapset.Set[any]) bool {
 	// commutes and order_after only with concurrent operations
-	if r.data.Commutes(op, operations) || r.order_after(op, operations) || r.causally_after(op, operations) {
+	if r.commutes(op, operations) || r.order_after(op, operations) || r.causally_after(op, operations) {
 		return true
 	}
 	return false
@@ -54,7 +65,7 @@ func (r *EcroCRDT) after(op any, operations mapset.Set[any]) bool {
 
 func (r *EcroCRDT) order_after(op any, operations mapset.Set[any]) bool {
 	operations.Add(op)
-	r.data.Order(operations)
+	r.Data.Order(operations)
 	op1, _ := operations.Pop()
 	return op1 == op
 }

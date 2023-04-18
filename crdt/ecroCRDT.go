@@ -26,7 +26,7 @@ type EcroCRDT struct {
 	Unstable_st         any //most recent state
 }
 
-func (r *EcroCRDT) TCDeliver(msg communication.Message) {
+func (r *EcroCRDT) Effect(msg communication.Message) {
 	if r.after(msg.Value, r.Unstable_operations) {
 		r.Unstable_st = r.Data.Apply(r.Unstable_st, mapset.NewSet(msg.Value))
 		r.Unstable_operations.Add(msg.Value)
@@ -36,7 +36,7 @@ func (r *EcroCRDT) TCDeliver(msg communication.Message) {
 	}
 }
 
-func (r *EcroCRDT) TCStable(msg communication.Message) {
+func (r *EcroCRDT) Stabilize(msg communication.Message) {
 	r.Unstable_operations.Remove(msg.Value)
 	r.Data.Apply(r.Stable_st, mapset.NewSet(msg.Value))
 }

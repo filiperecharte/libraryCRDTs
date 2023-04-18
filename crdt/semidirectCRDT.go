@@ -23,13 +23,13 @@ type SemidirectCRDT struct {
 	Unstable_st         any
 }
 
-func (r *SemidirectCRDT) TCDeliver(msg communication.Message) {
+func (r *SemidirectCRDT) Effect(msg communication.Message) {
 	newUpdate := r.Data.Repair(msg.Value, r.Unstable_operations)
 	r.Unstable_st = r.Data.Apply(r.Unstable_st, mapset.NewSet(newUpdate))
 	r.Unstable_operations.Add(msg.Value)
 }
 
-func (r *SemidirectCRDT) TCStable(msg communication.Message) {
+func (r *SemidirectCRDT) Stabilize(msg communication.Message) {
 	r.Unstable_operations.Remove(msg.Value)
 }
 

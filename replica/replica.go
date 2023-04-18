@@ -13,11 +13,11 @@ type CrdtI interface {
 
 	// The TCDeliver callback function is called when a message is ready to be delivered.
 	//effect
-	TCDeliver(msg communication.Message)
+	Effect(msg communication.Message)
 
 	// The TCStable callback function is called when a message is set to stable.
 	//stabilize
-	TCStable(msg communication.Message)
+	Stabilize(msg communication.Message)
 
 	// Query made by a client to a replica that returns the current state of the CRDT
 	// after applying the unstable operations into the CRDT stable state
@@ -56,7 +56,7 @@ func (r *Replica) TCBcast(operation int, value any) {
 	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
 	msg := communication.NewMessage(communication.DLV, operation, value, vv, r.id)
-	r.crdt.TCDeliver(msg)
+	r.crdt.Effect(msg)
 	r.middleware.Tcbcast <- msg
 	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 }
@@ -70,10 +70,10 @@ func (r *Replica) dequeue() {
 			log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)
-			r.crdt.TCDeliver(msg)
+			r.crdt.Effect(msg)
 		} else if msg.Type == communication.STB {
-			log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
-			r.crdt.TCStable(msg)
+			//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+			r.crdt.Stabilize(msg)
 		}
 	}
 }

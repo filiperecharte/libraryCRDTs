@@ -16,11 +16,11 @@ type CommutativeCRDT struct {
 }
 
 // effect
-func (c *CommutativeCRDT) TCDeliver(msg communication.Message) {
+func (c *CommutativeCRDT) Effect(msg communication.Message) {
 	c.Stable_st = c.Data.Apply(c.Stable_st, []any{msg})
 }
 
-func (c *CommutativeCRDT) TCStable(msg communication.Message) {
+func (c *CommutativeCRDT) Stabilize(msg communication.Message) {
 	//ignore
 }
 

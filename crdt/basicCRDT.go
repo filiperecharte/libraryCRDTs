@@ -25,11 +25,11 @@ type BasicCRDT struct {
 	Unstable_operations mapset.Set[any]
 }
 
-func (r *BasicCRDT) TCDeliver(msg communication.Message) {
+func (r *BasicCRDT) Effect(msg communication.Message) {
 	r.Unstable_operations.Add(msg.Value)
 }
 
-func (r *BasicCRDT) TCStable(msg communication.Message) {
+func (r *BasicCRDT) Stabilize(msg communication.Message) {
 	r.Unstable_operations.Remove(msg.Value)
 	r.Data.Apply(r.Stable_st, mapset.NewSet(msg.Value))
 }

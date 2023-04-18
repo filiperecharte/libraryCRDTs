@@ -37,7 +37,7 @@ func TestCounter(t *testing.T) {
 				defer wg.Done()
 				// Perform random number of add operations with random delays
 				for j := 0; j < len(adds); j++ {
-					r.Add(adds[j])
+					r.Prepare("ADD", adds[j])
 					time.Sleep(delays[j])
 				}
 			}(replicas[i], adds)

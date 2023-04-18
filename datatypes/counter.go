@@ -8,11 +8,10 @@ import (
 
 type Counter struct{}
 
-func (c Counter) Apply(state any, operations []any) any {
+func (c Counter) Apply(state any, operations []communication.Operation) any {
 	st := state.(int)
 	for _, op := range operations {
-		msgOP := op.(communication.Message)
-		st += msgOP.Value.(int)
+		st += op.Value.(int)
 	}
 	return st
 }

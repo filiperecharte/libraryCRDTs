@@ -11,26 +11,26 @@ type SemidirectDataI interface {
 
 	// Apply `operations` to a given `state`.
 	// All `operations` are unstable.
-	Apply(state any, operations mapset.Set[any]) any
+	Apply(state any, operations mapset.Set[communication.Operation]) any
 
 	// Repairs unstable operations.
-	Repair(update any, unstable_operations mapset.Set[any]) any
+	Repair(update communication.Operation, unstable_operations mapset.Set[communication.Operation]) communication.Operation
 }
 
 type SemidirectCRDT struct {
 	Data                SemidirectDataI //data interface
-	Unstable_operations mapset.Set[any] //all aplied updates
+	Unstable_operations mapset.Set[communication.Operation] //all aplied updates
 	Unstable_st         any
 }
 
-func (r *SemidirectCRDT) Effect(msg communication.Message) {
-	newUpdate := r.Data.Repair(msg.Value, r.Unstable_operations)
+func (r *SemidirectCRDT) Effect(op communication.Operation) {
+	newUpdate := r.Data.Repair(op, r.Unstable_operations)
 	r.Unstable_st = r.Data.Apply(r.Unstable_st, mapset.NewSet(newUpdate))
-	r.Unstable_operations.Add(msg.Value)
+	r.Unstable_operations.Add(op)
 }
 
-func (r *SemidirectCRDT) Stabilize(msg communication.Message) {
-	r.Unstable_operations.Remove(msg.Value)
+func (r *SemidirectCRDT) Stabilize(op communication.Operation) {
+	r.Unstable_operations.Remove(op)
 }
 
 func (r *SemidirectCRDT) Query() any {

@@ -70,7 +70,7 @@ func main() {
 				continue
 			}
 			fmt.Printf("Adding value %d to replica %d...\n", value, replica)
-			counters[replica-1].Add(value)
+			//counters[replica-1].Add(value)
 		case "REM":
 			if len(args) != 3 {
 				fmt.Println("Error: Missing value argument for REM action")
@@ -82,7 +82,7 @@ func main() {
 				continue
 			}
 			fmt.Printf("Removing value %d from replica %d...\n", value, replica)
-			counters[replica-1].Remove(value)
+			//counters[replica-1].Remove(value)
 		default:
 			fmt.Println("Error: Invalid action")
 			break

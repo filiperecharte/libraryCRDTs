@@ -104,7 +104,7 @@ func (mw *Middleware) receive() {
 
 		//if mw.ReceivedVersion.FindTicks(j) < V_m.FindTicks(j) { // communication.Messages from the same replica cannot be delivered out of order otherwise they are ignored
 		mw.ReceivedVersion.Tick(j)
-		if V_m.FindTicks(j) == mw.DeliveredVersion.FindTicks(j)+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
+		if V_m.FindTicks(j) == mw.DeliveredVersion.FindTicks(j)+1 && allCausalPredecessorsDelivered(*V_m, mw.DeliveredVersion, j) {
 			mw.DeliveredVersion.Tick(j)
 			mw.DeliverCausal <- m
 			mw.updatestability(m)
@@ -133,9 +133,9 @@ func (mw *Middleware) deliver() {
 			to = 0
 		} else {
 			msg := mw.DQ[from]
-			if msg.Version.FindTicks(msg.OriginID) == mw.DeliveredVersion.FindTicks(msg.OriginID)+1 && allCausalPredecessorsDelivered(msg.Version, mw.DeliveredVersion, msg.OriginID) {
+			if msg.Version.FindTicks(msg.OriginID) == mw.DeliveredVersion.FindTicks(msg.OriginID)+1 && allCausalPredecessorsDelivered(*msg.Version, mw.DeliveredVersion, msg.OriginID) {
 				mw.DeliveredVersion.Tick(msg.OriginID)
-				msg := communication.NewMessage(communication.DLV, msg.Operation, msg.Value, msg.Version, msg.OriginID)
+				msg := communication.NewMessage(communication.DLV, msg.Operation.Type, msg.Value, *msg.Version, msg.OriginID)
 				mw.DeliverCausal <- msg
 				mw.updatestability(msg)
 			} else {
@@ -161,7 +161,7 @@ func allCausalPredecessorsDelivered(V_m, V_i communication.VClock, j string) boo
 func (mw *Middleware) updatestability(msg communication.Message) {
 	mw.Observed.SetVClock(mw.replica, mw.DeliveredVersion) //updates current replica with its own version
 	if mw.replica != msg.OriginID {
-		mw.Observed.SetVClock(msg.OriginID, msg.Version) //updates observed matrix with the version of the received message
+		mw.Observed.SetVClock(msg.OriginID, *msg.Version) //updates observed matrix with the version of the received message
 	}
 	mw.Ctr++
 

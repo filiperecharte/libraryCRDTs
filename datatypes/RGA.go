@@ -28,12 +28,12 @@ type RGA struct {
 	sequencer Position
 }
 
-func (r *RGA) Apply(state any, operations []any) any {
+func (r *RGA) Apply(state any, operations []communication.Operation) any {
 	st := state.([]Vertex)
 	for _, op := range operations {
-		msgOP := op.(communication.Message)
-		switch msgOP.Operation {
-		case communication.ADD:
+		msgOP := op
+		switch msgOP.Type {
+		case "ADD":
 			// find index where predecessor vertex can be found
 			predecessorIdx := indexOfVPtr(msgOP.Value.(Operation).After, st)
 			// adjust index where new vertex is to be inserted when concurrent insertions for the same predecessor occur
@@ -51,7 +51,7 @@ func (r *RGA) Apply(state any, operations []any) any {
 			r.sequencer = nextSeqNr
 
 			break
-		case communication.REM:
+		case "REM":
 			log.Println("Received REM operation: ", msgOP.Value.(Operation).At)
 			// find index where removed vertex can be found and clear its content to tombstone it
 			index := indexOfVPtr(msgOP.Value.(Operation).At, st)

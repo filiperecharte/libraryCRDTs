@@ -7,7 +7,7 @@ import (
 type CommutativeDataI interface {
 	// Apply `operations` to a given `state`.
 	// All `operations` are unstable.
-	Apply(state any, operations []any) any
+	Apply(state any, operations []communication.Operation) any
 }
 
 type CommutativeCRDT struct {
@@ -16,11 +16,11 @@ type CommutativeCRDT struct {
 }
 
 // effect
-func (c *CommutativeCRDT) Effect(msg communication.Message) {
-	c.Stable_st = c.Data.Apply(c.Stable_st, []any{msg})
+func (c *CommutativeCRDT) Effect(op communication.Operation) {
+	c.Stable_st = c.Data.Apply(c.Stable_st, []communication.Operation{op})
 }
 
-func (c *CommutativeCRDT) Stabilize(msg communication.Message) {
+func (c *CommutativeCRDT) Stabilize(op communication.Operation) {
 	//ignore
 }
 

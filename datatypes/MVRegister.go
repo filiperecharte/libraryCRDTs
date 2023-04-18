@@ -17,7 +17,7 @@ type MVRegister struct {
 	vstate mapset.Set[update] // versioned state used to check concurrent operations
 }
 
-func (m *MVRegister) Apply(state any, operations []any) any {
+func (m *MVRegister) Apply(state any, operations []communication.Operation) any {
 	st := mapset.NewSet[int]()
 
 	// check if there are concurrent operations using vector clocks and join them in a set
@@ -27,7 +27,7 @@ func (m *MVRegister) Apply(state any, operations []any) any {
 
 	for _, op := range operations {
 		for _, s := range m.vstate.ToSlice() {
-			msgOP := op.(communication.Message)
+			msgOP := op
 
 			cmp := msgOP.Version.Compare(*s.version)
 			if cmp == communication.Concurrent {
@@ -40,8 +40,8 @@ func (m *MVRegister) Apply(state any, operations []any) any {
 	}
 
 	for _, op := range operations {
-		msgOP := op.(communication.Message)
-		m.vstate.Add(update{msgOP.Value.(int), &msgOP.Version})
+		msgOP := op
+		m.vstate.Add(update{msgOP.Value.(int), msgOP.Version})
 		st.Add(msgOP.Value.(int))
 	}
 

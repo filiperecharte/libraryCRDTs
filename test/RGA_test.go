@@ -38,7 +38,7 @@ func TestRGA(t *testing.T) {
 				// Perform random number of add operations with random delays
 				for j := 0; j < len(adds); j++ {
 					k, _ := strconv.Atoi(r.GetID())
-					r.Add(datatypes.Operation{
+					r.Prepare("ADD", datatypes.Operation{
 						After: datatypes.Position{I: k, ID: r.GetID()}, 
 						At: datatypes.Position{I: k + 1, ID: r.GetID()}, 
 						Value: adds[j],

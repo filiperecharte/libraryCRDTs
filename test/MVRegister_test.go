@@ -38,7 +38,7 @@ func TestMVRegister(t *testing.T) {
 				// Perform random number of add operations with random delays
 				for j := 0; j < len(adds); j++ {
 					k, _ := strconv.Atoi(r.GetID())
-					r.Add(k * 5 + j)
+					r.Prepare("ADD", k * 5 + j)
 					time.Sleep(delays[j])
 				}
 			}(replicas[i], adds)

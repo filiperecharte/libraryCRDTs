@@ -8,14 +8,14 @@ import (
 
 type PNCounter struct{}
 
-func (r PNCounter) Apply(state any, operations []any) any {
+func (r PNCounter) Apply(state any, operations []communication.Operation) any {
 	st := state.(int)
 	for _, op := range operations {
-		msgOP := op.(communication.Message)
+		msgOP := op
 		switch msgOP.Type {
-		case communication.ADD:
+		case "ADD":
 			st += msgOP.Value.(int)
-		case communication.REM:
+		case "REM":
 			st -= msgOP.Value.(int)
 		}
 	}

@@ -28,7 +28,7 @@ type RGA struct {
 	sequencer Position
 }
 
-func (r RGA) Apply(state any, operations []any) any {
+func (r *RGA) Apply(state any, operations []any) any {
 	st := state.([]Vertex)
 	for _, op := range operations {
 		msgOP := op.(communication.Message)

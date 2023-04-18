@@ -14,9 +14,6 @@ type BasicDataI interface {
 
 	// Order unstable operations.
 	Order(operations mapset.Set[any]) mapset.Set[any]
-
-	//Operations that commute
-	Commutes(op1 any, op2 any) bool
 }
 
 type BasicCRDT struct {

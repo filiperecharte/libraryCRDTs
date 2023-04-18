@@ -72,7 +72,7 @@ func (r *Replica) dequeue() {
 			r.VersionVector.Set(msg.OriginID, t)
 			r.crdt.TCDeliver(msg)
 		} else if msg.Type == communication.STB {
-			//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+			log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 			r.crdt.TCStable(msg)
 		}
 	}

@@ -106,8 +106,8 @@ func (vc VClock) Equal(vc1 VClock) bool {
 func (vc VClock) Compare(other VClock) Condition {
 	var otherIs Condition
 	vc.Lock()
-	defer vc.Unlock()
 	other.Lock()
+	defer vc.Unlock()
 	defer other.Unlock()
 
 	// Preliminary qualification based on length
@@ -192,9 +192,4 @@ func (vc VClock) Subtract(vc1 VClock) (subVC VClock) {
 	vc1.Unlock()
 	vc.Unlock()
 	return subVC
-}
-
-// creates new mutex for vector clock
-func (vc *VClock) NewMutex() {
-	vc.RWMutex = new(sync.RWMutex)
 }

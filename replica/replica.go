@@ -25,7 +25,7 @@ type CrdtI interface {
 }
 
 type Replica struct {
-	crdt          CrdtI
+	Crdt          CrdtI
 	id            string
 	replicas      map[string]chan interface{}
 	middleware    *middleware.Middleware
@@ -39,7 +39,7 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}) *Re
 
 	r := &Replica{
 		id:            id,
-		crdt:          crdt,
+		Crdt:          crdt,
 		replicas:      channels,
 		middleware:    middleware.NewMiddleware(id, ids, channels),
 		VersionVector: communication.InitVClock(ids), //delivered version vector
@@ -53,8 +53,8 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}) *Re
 // Broadcasts a message by incrementing the replica's own entry in the version vector
 // and enqueuing the message with the updated version vector to the middleware process.
 func (r *Replica) TCBcast(operation communication.Operation) {
-	msg := communication.NewMessage(communication.DLV, operation.Type, operation.Value, *operation.Version, r.id)
-	r.crdt.Effect(msg.Operation)
+	msg := communication.NewMessage(communication.DLV, operation.Type, operation.Value, operation.Version, r.id)
+	r.Crdt.Effect(msg.Operation)
 	r.middleware.Tcbcast <- msg
 	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 }
@@ -68,10 +68,10 @@ func (r *Replica) dequeue() {
 			log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)
-			r.crdt.Effect(msg.Operation)
+			r.Crdt.Effect(msg.Operation)
 		} else if msg.Type == communication.STB {
 			//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
-			r.crdt.Stabilize(msg.Operation)
+			r.Crdt.Stabilize(msg.Operation)
 		}
 	}
 }
@@ -81,12 +81,8 @@ func (r *Replica) dequeue() {
 func (r *Replica) Prepare(operationType string, operationValue any){
 	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
-	op := communication.Operation{Type: operationType, Value: operationValue, Version: &vv}
+	op := communication.Operation{Type: operationType, Value: operationValue, Version: vv}
 	r.TCBcast(op)
-}
-
-func (r *Replica) Query() any {
-	return r.crdt.Query()
 }
 
 func (r *Replica) GetID() string {

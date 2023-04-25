@@ -1,5 +1,9 @@
 package communication
 
+import (
+	"sync"
+)
+
 const (
 	MSG int = 0
 	DLV int = 1
@@ -14,7 +18,15 @@ const (
 type Operation struct {
 	Type    string // operation type
 	Value   any    // value of the operation submitted by user
-	Version *VClock // vector clock kept for keeping causal order
+	Version VClock // vector clock kept for keeping causal order
+}
+
+// Compares two operations to see if they are concurrent
+func (e *Operation) Concurrent(other *Operation) bool {
+	if e.Version.Compare(other.Version) == Concurrent {
+		return true
+	}
+	return e.Value == other.Value
 }
 
 type Message struct {
@@ -27,7 +39,7 @@ type Message struct {
 func NewMessage(tp int, operation string, value any, version VClock, originID string) Message {
 	return Message{
 		Type:      tp,
-		Operation: Operation{Type: operation, Value: value, Version: &version},
+		Operation: Operation{Type: operation, Value: value, Version: version},
 		OriginID:  originID,
 	}
 }
@@ -35,7 +47,7 @@ func NewMessage(tp int, operation string, value any, version VClock, originID st
 // CompareTo compares two messages based on their version and timestamp.
 // If the messages are concurrent, the one with the higher timestamp is considered to be newer.
 func (e *Message) CompareTo(other *Message) Condition {
-	return e.Version.Compare(*other.Version)
+	return e.Version.Compare(other.Version)
 }
 
 // set type of message
@@ -45,6 +57,11 @@ func (e *Message) SetType(tp int) {
 
 // Check if two messages are equal by comparing their version, value, timestamp and origin
 func (e *Message) Equals(other *Message) bool {
-	return e.Version.Compare(*other.Version) == Equal && e.Value == other.Value &&
+	return e.Version.Compare(other.Version) == Equal && e.Value == other.Value &&
 		e.OriginID == other.OriginID
+}
+
+// creates new mutex for vector clock
+func (e *Message) NewMutex() {
+	e.Version.RWMutex = new(sync.RWMutex)
 }

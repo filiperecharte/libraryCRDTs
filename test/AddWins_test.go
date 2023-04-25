@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestCounter(t *testing.T) {
+func TestAddWins(t *testing.T) {
 
 	// Define property to test
 	property := func(adds []int, delays []time.Duration, numReplicas int) bool {
@@ -26,7 +26,7 @@ func TestCounter(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewCounterReplica(strconv.Itoa(i), channels)
+			replicas[i] = datatypes.NewAddWinsReplica(strconv.Itoa(i), channels)
 		}
 
 		// Start a goroutine for each replica
@@ -37,7 +37,7 @@ func TestCounter(t *testing.T) {
 				defer wg.Done()
 				// Perform random number of add operations with random delays
 				for j := 0; j < len(adds); j++ {
-					r.Prepare("ADD", adds[j])
+					r.Prepare("Add", adds[j])
 					time.Sleep(delays[j])
 				}
 			}(replicas[i], adds)

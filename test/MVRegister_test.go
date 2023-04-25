@@ -51,15 +51,15 @@ func TestMVRegister(t *testing.T) {
 
 		// Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
-			if !reflect.DeepEqual(replicas[i].Query(), replicas[0].Query()) {
+			if !reflect.DeepEqual(replicas[i].Crdt.Query(), replicas[0].Crdt.Query()) {
 				for i := 0; i < numReplicas; i++ {
-					t.Error("Replica ", i, ": ", replicas[i].Query())
+					t.Error("Replica ", i, ": ", replicas[i].Crdt.Query())
 				}
 				return false
 			}
 		}
 		for i := 0; i < numReplicas; i++ {
-			t.Log("Replica ", i, ": ", replicas[i].Query())
+			t.Log("Replica ", i, ": ", replicas[i].Crdt.Query())
 		}
 		return true
 	}

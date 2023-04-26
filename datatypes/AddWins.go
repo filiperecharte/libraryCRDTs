@@ -4,35 +4,31 @@ import (
 	"library/packages/communication"
 	"library/packages/crdt"
 	"library/packages/replica"
-	"sort"
+
+	mapset "github.com/deckarep/golang-set/v2"
 )
 
 type AddWins struct {
+	id string
 }
 
-func (a AddWins) Add(state []communication.Operation, elem any) []communication.Operation {
-	return append(state, elem.(communication.Operation))
+func (a AddWins) Add(state mapset.Set[any], elem any) mapset.Set[any] {
+	state.Add(elem.(communication.Operation).Value)
+	return state
 }
 
-func (a AddWins) Remove(state []communication.Operation, elem any) []communication.Operation {
-	var result []communication.Operation
-
-	for _, op := range state {
-		if op.Value != elem.(communication.Operation).Value && op.Type != elem.(communication.Operation).Type {
-			result = append(result, op)
-		}
-	}
-
-	return result
+func (a AddWins) Remove(state mapset.Set[any], elem any) mapset.Set[any] {
+	state.Remove(elem.(communication.Operation).Value)
+	return state
 }
 
 func (a AddWins) Apply(state any, operations []communication.Operation) any {
 	for _, op := range operations {
 		switch op.Type {
 		case "Add":
-			state = a.Add(state.([]communication.Operation), op)
-		case "Remove":
-			state = a.Remove(state.([]communication.Operation), op)
+			state = a.Add(state.(mapset.Set[any]), op)
+		case "Rem":
+			state = a.Remove(state.(mapset.Set[any]), op)
 		}
 	}
 	return state
@@ -40,18 +36,19 @@ func (a AddWins) Apply(state any, operations []communication.Operation) any {
 
 func (a AddWins) Order(operations []communication.Operation) []communication.Operation {
 	//order map of operations by type of operation, removes come before adds
-	sort.Slice(operations, func(i, j int) bool {
-		//if operations[i].Concurrent(&operations[j]) {
-		if operations[i].Type == "Add" && operations[j].Type == "Remove" {
-			return false
+	sortedOperations := make([]communication.Operation, len(operations))
+	copy(sortedOperations, operations)
+
+	for i := 0; i < len(sortedOperations); i++ {
+		for j := i + 1; j < len(sortedOperations); j++ {
+			if sortedOperations[i].Concurrent(sortedOperations[j]) && sortedOperations[j].Type == "Rem" && sortedOperations[i].Type == "Add" {
+				// Swap operations[i] and operations[j] if they meet the condition.
+				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
+			}
 		}
-		if operations[i].Type == "Remove" && operations[j].Type == "Add" {
-			return true
-		}
-		//}
-		return true
-	})
-	return operations
+	}
+
+	return sortedOperations
 }
 
 func (a AddWins) Commutes(op1 communication.Operation, op2 communication.Operation) bool {
@@ -61,7 +58,7 @@ func (a AddWins) Commutes(op1 communication.Operation, op2 communication.Operati
 // initialize counter replica
 func NewAddWinsReplica(id string, channels map[string]chan any) *replica.Replica {
 
-	c := crdt.EcroCRDT{Data: AddWins{}, Stable_st: []communication.Operation{}, Unstable_operations: []communication.Operation{}, Unstable_st: []communication.Operation{}}
+	c := crdt.EcroCRDT{Id: id, Data: AddWins{id}, Stable_st: mapset.NewSet[any](), Unstable_operations: []communication.Operation{}, Unstable_st: mapset.NewSet[any]()}
 
 	return replica.NewReplica(id, &c, channels)
 }

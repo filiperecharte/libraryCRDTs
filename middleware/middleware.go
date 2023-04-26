@@ -97,7 +97,7 @@ func (mw *Middleware) receive() {
 		m1 := <-mw.channels[mw.replica]
 
 		m := m1.(communication.Message)
-		m.NewMutex() //because messages save pointers do mutexes
+		m.NewMutex() //because messages save pointers to mutexes
 
 		V_m := m.Version
 		j := m.OriginID

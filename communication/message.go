@@ -22,11 +22,11 @@ type Operation struct {
 }
 
 // Compares two operations to see if they are concurrent
-func (e *Operation) Concurrent(other *Operation) bool {
-	if e.Version.Compare(other.Version) == Concurrent {
+func (e *Operation) Concurrent(other Operation) bool {
+	if e.Version.Compare(other.Version) == Concurrent && e.Value == other.Value {
 		return true
 	}
-	return e.Value == other.Value
+	return false
 }
 
 type Message struct {

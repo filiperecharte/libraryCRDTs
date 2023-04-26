@@ -1,91 +1,45 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
-	"library/packages/datatypes"
-	"library/packages/replica"
-	"os"
-	"strconv"
-	"strings"
+	"library/packages/communication"
+	"log"
 )
+
+func Order(operations []communication.Operation) []communication.Operation {
+	//order map of operations by type of operation, removes come before adds
+	sortedOperations := make([]communication.Operation, len(operations))
+	copy(sortedOperations, operations)
+
+	for i := 0; i < len(sortedOperations); i++ {
+		for j := i + 1; j < len(sortedOperations); j++ {
+			if sortedOperations[i].Concurrent(sortedOperations[j]) && sortedOperations[j].Type == "Rem" && sortedOperations[i].Type == "Add" {
+				// Swap operations[i] and operations[j] if they meet the condition.
+				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
+			}
+		}
+	}
+
+	return sortedOperations
+}
 
 func main() {
 
-	var channels = map[string]chan interface{}{
-		"1": make(chan interface{}),
-		"2": make(chan interface{}),
-		"3": make(chan interface{}),
+	//create array of operations
+	operations := []communication.Operation{
+		{Type: "Rem", Value: 1, Version: communication.NewVClockFromMap(map[string]uint64{"0": 0, "1": 0, "2": 1})},
+		{Type: "Add", Value: 1, Version: communication.NewVClockFromMap(map[string]uint64{"0": 0, "1": 0, "2": 2})},
+		{Type: "Add", Value: 1, Version: communication.NewVClockFromMap(map[string]uint64{"0": 1, "1": 0, "2": 0})},
+		{Type: "Rem", Value: 1, Version: communication.NewVClockFromMap(map[string]uint64{"0": 0, "1": 1, "2": 0})},
+		{Type: "Add", Value: 1, Version: communication.NewVClockFromMap(map[string]uint64{"0": 0, "1": 2, "2": 0})},
+		{Type: "Rem", Value: 1, Version: communication.NewVClockFromMap(map[string]uint64{"0": 2, "1": 0, "2": 0})},
 	}
 
-	// create Replicas and assign CRDT
-	counter1 := datatypes.NewCounterReplica("1", channels)
-	counter2 := datatypes.NewCounterReplica("2", channels)
-	counter3 := datatypes.NewCounterReplica("3", channels)
+	//sort operations
+	sortedOperations := make([]communication.Operation, len(operations))
+	copy(sortedOperations, operations)
+	newop := Order(sortedOperations)
 
-	counters := []*replica.Replica{counter1, counter2, counter3}
+	log.Println(operations)
+	log.Println(newop)
 
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		fmt.Println("Enter command:")
-		// Read the next line of input from the scanner
-		if !scanner.Scan() {
-			// An error occurred or end of input was reached
-			fmt.Println("Error reading input:", scanner.Err())
-			continue
-		}
-
-		// Parse the input line into arguments
-		args := strings.Fields(scanner.Text())
-
-		// Ensure at least two arguments are provided
-		if len(args) < 2 {
-			fmt.Println("Usage: <replica> <action> [<value>]")
-			continue
-		}
-
-		// Parse replica number from first argument
-		replica, err := strconv.Atoi(args[0])
-		if err != nil {
-			fmt.Println("Error: Invalid replica number")
-			continue
-		}
-
-		// Parse action from second argument
-		action := args[1]
-
-		// Perform action based on second argument
-		switch action {
-		case "QUERY":
-			fmt.Printf("Querying replica %d...\n", replica)
-			fmt.Println(counters[replica-1].Query())
-		case "ADD":
-			if len(args) != 3 {
-				fmt.Println("Error: Missing value argument for ADD action")
-				continue
-			}
-			value, err := strconv.Atoi(args[2])
-			if err != nil {
-				fmt.Println("Error: Invalid value for ADD action")
-				continue
-			}
-			fmt.Printf("Adding value %d to replica %d...\n", value, replica)
-			//counters[replica-1].Add(value)
-		case "REM":
-			if len(args) != 3 {
-				fmt.Println("Error: Missing value argument for REM action")
-				continue
-			}
-			value, err := strconv.Atoi(args[2])
-			if err != nil {
-				fmt.Println("Error: Invalid value for REM action")
-				continue
-			}
-			fmt.Printf("Removing value %d from replica %d...\n", value, replica)
-			//counters[replica-1].Remove(value)
-		default:
-			fmt.Println("Error: Invalid action")
-			break
-		}
-	}
 }

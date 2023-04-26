@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"log"
 )
 
 // data interface
@@ -18,6 +19,7 @@ type EcroDataI interface {
 }
 
 type EcroCRDT struct {
+	Id                  string
 	Data                EcroDataI //data interface
 	Stable_st           any       // stable state
 	Unstable_operations []communication.Operation
@@ -25,28 +27,30 @@ type EcroCRDT struct {
 }
 
 func (r *EcroCRDT) Effect(op communication.Operation) {
-	if r.after(op, r.Unstable_operations) {
-		r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
+	// if r.after(op, r.Unstable_operations) {
+	// 	r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
+	// 	r.Unstable_operations = append(r.Unstable_operations, op)
+	// } else {
 		r.Unstable_operations = append(r.Unstable_operations, op)
-	} else {
-		r.Unstable_operations = append(r.Unstable_operations, op)
-		r.Unstable_st = r.Data.Apply(r.Stable_st, r.Data.Order(r.Unstable_operations))
-	}
+		//r.Unstable_st = r.Data.Apply(r.Stable_st, r.Data.Order(r.Unstable_operations))
+	// }
 }
 
 func (r *EcroCRDT) Stabilize(op communication.Operation) {
 	//remove op from slice
-	for i, o := range r.Unstable_operations {
-		if o.Type == op.Type && o.Value == op.Value {
-			r.Unstable_operations = append(r.Unstable_operations[:i], r.Unstable_operations[i+1:]...)
-			break
-		}
-	}
+	// for i, o := range r.Unstable_operations {
+	// 	if o.Type == op.Type && o.Value == op.Value {
+	// 		r.Unstable_operations = append(r.Unstable_operations[:i], r.Unstable_operations[i+1:]...)
+	// 		break
+	// 	}
+	// }
 
-	r.Data.Apply(r.Stable_st, []communication.Operation{op})
+	// r.Data.Apply(r.Stable_st, []communication.Operation{op})
 }
 
 func (r *EcroCRDT) Query() any {
+	log.Println("REPLICA", r.Id, "Unstable operations:", r.Unstable_operations)
+	log.Println("REPLICA", r.Id, "Ordered operations:", r.Data.Order(r.Unstable_operations))
 	return r.Unstable_st
 }
 
@@ -61,7 +65,7 @@ func (r *EcroCRDT) after(op communication.Operation, operations []communication.
 // checks if op commutes with all unstable concurrent operations
 func (r *EcroCRDT) commutes(op communication.Operation, operations []communication.Operation) bool {
 	for _, op2 := range operations {
-		if !r.Data.Commutes(op, op2) {
+		if op.Concurrent(op2) && !r.Data.Commutes(op, op2) {
 			return false
 		}
 	}

@@ -55,8 +55,8 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}) *Re
 func (r *Replica) TCBcast(operation communication.Operation) {
 	msg := communication.NewMessage(communication.DLV, operation.Type, operation.Value, operation.Version, r.id)
 	r.Crdt.Effect(msg.Operation)
-	r.middleware.Tcbcast <- msg
 	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
+	r.middleware.Tcbcast <- msg
 }
 
 // Dequeues a message that is ready to be delivered to the replica process.
@@ -70,7 +70,7 @@ func (r *Replica) dequeue() {
 			r.VersionVector.Set(msg.OriginID, t)
 			r.Crdt.Effect(msg.Operation)
 		} else if msg.Type == communication.STB {
-			//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+			log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 			r.Crdt.Stabilize(msg.Operation)
 		}
 	}
@@ -78,7 +78,7 @@ func (r *Replica) dequeue() {
 
 // Update made by a client to a replica that receives the operation to be applied to the CRDT
 // sends the operation to middleware for broadcast
-func (r *Replica) Prepare(operationType string, operationValue any){
+func (r *Replica) Prepare(operationType string, operationValue any) {
 	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
 	op := communication.Operation{Type: operationType, Value: operationValue, Version: vv}

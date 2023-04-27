@@ -12,7 +12,7 @@ func Order(operations []communication.Operation) []communication.Operation {
 
 	for i := 0; i < len(sortedOperations); i++ {
 		for j := i + 1; j < len(sortedOperations); j++ {
-			if sortedOperations[i].Concurrent(sortedOperations[j]) && sortedOperations[j].Type == "Rem" && sortedOperations[i].Type == "Add" {
+			if sortedOperations[i].Concurrent(sortedOperations[j]) && !(sortedOperations[i].Type == "Rem" && sortedOperations[j].Type == "Add") && !(sortedOperations[i].Type == sortedOperations[j].Type) {
 				// Swap operations[i] and operations[j] if they meet the condition.
 				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
 			}

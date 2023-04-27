@@ -34,25 +34,14 @@ func (a AddWins) Apply(state any, operations []communication.Operation) any {
 	return state
 }
 
-func (a AddWins) Order(operations []communication.Operation) []communication.Operation {
+func (a AddWins) Order(op1 communication.Operation, op2 communication.Operation) bool {
 	//order map of operations by type of operation, removes come before adds
-	sortedOperations := make([]communication.Operation, len(operations))
-	copy(sortedOperations, operations)
-
-	for i := 0; i < len(sortedOperations); i++ {
-		for j := i + 1; j < len(sortedOperations); j++ {
-			if sortedOperations[i].Concurrent(sortedOperations[j]) && sortedOperations[j].Type == "Rem" && sortedOperations[i].Type == "Add" {
-				// Swap operations[i] and operations[j] if they meet the condition.
-				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
-			}
-		}
-	}
-
-	return sortedOperations
+	
+	return op1.Type == "Rem" && op2.Type == "Add"
 }
 
 func (a AddWins) Commutes(op1 communication.Operation, op2 communication.Operation) bool {
-	return op1.Type != op2.Type
+	return op1.Type == op2.Type
 }
 
 // initialize counter replica

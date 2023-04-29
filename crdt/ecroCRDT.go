@@ -53,7 +53,7 @@ func (r *EcroCRDT) Query() any {
 
 func (r *EcroCRDT) after(op communication.Operation, operations []communication.Operation) bool {
 	// commutes and order_after only with concurrent operations
-	if r.commutes(op, operations) || r.order_after(op, operations) || r.causally_after(op, operations) {
+	if r.commutes(op, operations) || r.causally_after(op, operations) || r.order_after(op, operations) {
 		return true
 	}
 	return false
@@ -71,9 +71,12 @@ func (r *EcroCRDT) commutes(op communication.Operation, operations []communicati
 
 // it is safe to apply an update after all unstable operations when, if ordered, it would be the last operation
 func (r *EcroCRDT) order_after(op communication.Operation, operations []communication.Operation) bool {
-	operationsTemp := r.order(append(operations, op))
-	op1 := operationsTemp[len(operations)-1]
-	return op1.Type == op.Type && op1.Value == op.Value
+	for _, op2 := range operations {
+		if op.Concurrent(op2) && r.Data.Order(op2, op) {
+			return false
+		}
+	}
+	return true
 }
 
 // it is safe to apply an update after all unstable operations when it is causally after all unstable operations

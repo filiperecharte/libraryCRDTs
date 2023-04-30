@@ -26,7 +26,7 @@ func TestMVRegister(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewMVRegisterReplica(strconv.Itoa(i), channels)
+			replicas[i] = datatypes.NewMVRegisterReplica(strconv.Itoa(i), channels, 5)
 		}
 
 		// Start a goroutine for each replica

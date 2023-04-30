@@ -32,7 +32,7 @@ type Replica struct {
 	VersionVector communication.VClock
 }
 
-func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}) *Replica {
+func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}, delay int) *Replica {
 	//initialize replica state
 
 	ids := utils.MapToKeys(channels)
@@ -41,7 +41,7 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}) *Re
 		id:            id,
 		Crdt:          crdt,
 		replicas:      channels,
-		middleware:    middleware.NewMiddleware(id, ids, channels),
+		middleware:    middleware.NewMiddleware(id, ids, channels, delay),
 		VersionVector: communication.InitVClock(ids), //delivered version vector
 	}
 
@@ -55,7 +55,7 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}) *Re
 func (r *Replica) TCBcast(operation communication.Operation) {
 	msg := communication.NewMessage(communication.DLV, operation.Type, operation.Value, operation.Version, r.id)
 	r.Crdt.Effect(msg.Operation)
-	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
+	//log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 	r.middleware.Tcbcast <- msg
 }
 
@@ -65,12 +65,14 @@ func (r *Replica) dequeue() {
 	for {
 		msg := <-r.middleware.DeliverCausal
 		if msg.Type == communication.DLV {
-			log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
+			if r.id == "0" {
+				log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
+			}
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)
 			r.Crdt.Effect(msg.Operation)
 		} else if msg.Type == communication.STB {
-			log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+			//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 			r.Crdt.Stabilize(msg.Operation)
 		}
 	}

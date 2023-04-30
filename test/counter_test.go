@@ -15,7 +15,7 @@ import (
 func TestCounter(t *testing.T) {
 
 	// Define property to test
-	property := func(adds []int, delays []time.Duration, numReplicas int) bool {
+	property := func(adds []int, numReplicas int) bool {
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -26,7 +26,7 @@ func TestCounter(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewCounterReplica(strconv.Itoa(i), channels)
+			replicas[i] = datatypes.NewCounterReplica(strconv.Itoa(i), channels, 2*len(adds))
 		}
 
 		// Start a goroutine for each replica
@@ -35,10 +35,9 @@ func TestCounter(t *testing.T) {
 			wg.Add(1)
 			go func(r *replica.Replica, adds []int) {
 				defer wg.Done()
-				// Perform random number of add operations with random delays
+				// Perform random number of add operations
 				for j := 0; j < len(adds); j++ {
-					r.Prepare("ADD", adds[j])
-					time.Sleep(delays[j])
+					r.Prepare("Add", adds[j])
 				}
 			}(replicas[i], adds)
 		}
@@ -67,21 +66,17 @@ func TestCounter(t *testing.T) {
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 		numAdds := 5
 		adds := make([]int, numAdds)
-		delays := make([]time.Duration, numAdds)
 
 		for i := 0; i < numAdds; i++ {
-			adds = []int{1, 2, 3, 4, 5}
-			delays[i] = time.Duration(rand.Intn(5)) * time.Millisecond
+			adds = []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 		}
 
 		vals[0] = reflect.ValueOf(adds)
-		vals[1] = reflect.ValueOf(delays)
-		vals[2] = reflect.ValueOf(3)
+		vals[1] = reflect.ValueOf(3)
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
-		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
 		MaxCount: 1,
 		Values:   gen,
 	}

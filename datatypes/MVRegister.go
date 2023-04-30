@@ -58,11 +58,11 @@ func (m *MVRegister) Apply(state any, operations []communication.Operation) any 
 }
 
 // initialize counter replica
-func NewMVRegisterReplica(id string, channels map[string]chan any) *replica.Replica {
+func NewMVRegisterReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
 	m := crdt.CommutativeCRDT{Data: &MVRegister{
 		vstate: []update{},
 	}, Stable_st: mapset.NewSet[int]()}
 
-	return replica.NewReplica(id, &m, channels)
+	return replica.NewReplica(id, &m, channels, delay)
 }

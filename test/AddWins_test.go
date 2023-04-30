@@ -15,7 +15,7 @@ import (
 func TestAddWins(t *testing.T) {
 
 	// Define property to test
-	property := func(adds []int, rems []int, delays []time.Duration, numReplicas int) bool {
+	property := func(adds []int, rems []int, numReplicas int) bool {
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -26,7 +26,7 @@ func TestAddWins(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewAddWinsReplica(strconv.Itoa(i), channels)
+			replicas[i] = datatypes.NewAddWinsReplica(strconv.Itoa(i), channels, 0)
 		}
 
 		// Start a goroutine for each replica
@@ -38,7 +38,6 @@ func TestAddWins(t *testing.T) {
 				// Perform random number of add operations with random delays
 				for j := 0; j < 1; j++ {
 					r.Prepare("Add", adds[j])
-					time.Sleep(delays[j])
 				}
 			}(replicas[i], adds)
 
@@ -47,7 +46,6 @@ func TestAddWins(t *testing.T) {
 				// Perform random number of add operations with random delays
 				for j := 0; j < 1; j++ {
 					r.Prepare("Rem", rems[j])
-					time.Sleep(delays[j])
 				}
 			}(replicas[i], rems)
 		}
@@ -77,23 +75,19 @@ func TestAddWins(t *testing.T) {
 		numOps := 2
 		adds := make([]int, numOps)
 		rems := make([]int, numOps)
-		delays := make([]time.Duration, numOps)
 
 		for i := 0; i < numOps; i++ {
 			adds = []int{1, 2}
 			rems = []int{1, 2}
-			delays[i] = time.Duration(rand.Intn(5)) * time.Millisecond
 		}
 
 		vals[0] = reflect.ValueOf(adds)
 		vals[1] = reflect.ValueOf(rems)
-		vals[2] = reflect.ValueOf(delays)
-		vals[3] = reflect.ValueOf(3)
+		vals[2] = reflect.ValueOf(3)
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
-		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
 		MaxCount: 1,
 		Values:   gen,
 	}

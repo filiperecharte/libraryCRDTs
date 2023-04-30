@@ -3,9 +3,16 @@ package middleware
 import (
 	"library/packages/communication"
 	"library/packages/utils"
+	"math/rand"
 	"sort"
 	"sync"
+	"time"
 )
+
+type MessageDelay struct {
+	msg     communication.Message
+	delayed bool
+}
 
 type StableDotKey struct {
 	id string
@@ -36,16 +43,20 @@ type Middleware struct {
 	Tcbcast          chan communication.Message  // channel to receive messages from replica
 	DeliverCausal    chan communication.Message  // channel to causal deliver messages to replica
 	DQ               []communication.Message     // Delivery queue to add messages that dont have causal predecessors yet
-	Delay            bool                        // delay receive of message for debug reasons
 	Observed         VClocks                     // vector versions of observed universe
 	StableVersion    communication.VClock        // stable vector version
 	SMap             SMap                        // Messages delivered to replica but not yet stable (stable dots)
 	Min              Min                         // Replicas with the min vector
 	Ctr              uint64                      // order messages on stable delivery
+
+	Delay           int            // number of messages to delay for debug reasons
+	Rand            *rand.Rand     // random number generator
+	MessagesDelay   []MessageDelay // messages to be delayed (test purposes)
+	MessageDelayCtr int
 }
 
 // creates middleware state
-func NewMiddleware(id string, ids []string, channels map[string]chan interface{}) *Middleware {
+func NewMiddleware(id string, ids []string, channels map[string]chan interface{}, delay int) *Middleware {
 
 	mw := &Middleware{
 		replica:          id,
@@ -60,6 +71,11 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 		SMap:             SMap{RWMutex: new(sync.RWMutex), m: make(map[StableDotKey]StableDotValue)},
 		Min:              Min{RWMutex: new(sync.RWMutex), m: utils.InitMin(ids)},
 		Ctr:              0,
+
+		Rand:            rand.New(rand.NewSource(time.Now().UnixNano())),
+		Delay:           delay,
+		MessagesDelay:   make([]MessageDelay, 0),
+		MessageDelayCtr: 0,
 	}
 
 	go mw.dequeue()
@@ -98,21 +114,12 @@ func (mw *Middleware) receive() {
 
 		m := m1.(communication.Message)
 		m.NewMutex() //because messages save pointers to mutexes
-
-		V_m := m.Version
-		j := m.OriginID
-
-		//if mw.ReceivedVersion.FindTicks(j) < V_m.FindTicks(j) { // communication.Messages from the same replica cannot be delivered out of order otherwise they are ignored
-		mw.ReceivedVersion.Tick(j)
-		if V_m.FindTicks(j) == mw.DeliveredVersion.FindTicks(j)+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
-			mw.DeliveredVersion.Tick(j)
-			mw.DeliverCausal <- m
-			mw.updatestability(m)
-			mw.deliver()
+		if mw.Delay != 0 {
+			mw.messageDelayerHandler(m)
 		} else {
-			mw.DQ = append(mw.DQ, m)
+			mw.messageHandler(m)
 		}
-		//}
+
 	}
 }
 
@@ -243,4 +250,58 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 		}
 	}
 	return newStableVersion
+}
+
+// messageHandler handles the messages received from the network
+func (mw *Middleware) messageHandler(msg communication.Message) {
+	V_m := msg.Version
+	j := msg.OriginID
+	//if mw.ReceivedVersion.FindTicks(j) < V_m.FindTicks(j) { // communication.Messages from the same replica cannot be delivered out of order otherwise they are ignored
+	mw.ReceivedVersion.Tick(j)
+	if V_m.FindTicks(j) == mw.DeliveredVersion.FindTicks(j)+1 && allCausalPredecessorsDelivered(V_m, mw.DeliveredVersion, j) {
+		mw.DeliveredVersion.Tick(j)
+		mw.DeliverCausal <- msg
+		mw.updatestability(msg)
+		mw.deliver()
+	} else {
+		mw.DQ = append(mw.DQ, msg)
+	}
+	//}
+}
+
+// messageDelayerHandler handles the messages received from the network
+func (mw *Middleware) messageDelayerHandler(msg communication.Message) {
+	mw.MessagesDelay = append(mw.MessagesDelay, MessageDelay{msg: msg, delayed: false})
+
+	//if there are 5 or more messages in the queue, select one randomly to be delayed, otherwise continue receiving messages
+	if len(mw.MessagesDelay) >= 5 {
+		if len(mw.MessagesDelay) == mw.Delay {
+			for i, md := range mw.MessagesDelay {
+				if !md.delayed {
+					mw.messageHandler(md.msg)
+					mw.MessagesDelay[i].delayed = true
+				}
+			}
+		} else {
+			index := rand.Intn(len(mw.MessagesDelay))
+			md := mw.MessagesDelay[index]
+
+			if !md.delayed {
+				//select randomly one of the messages that have not been delayed
+				indexes := make([]int, 0)
+				for i, md := range mw.MessagesDelay {
+					if !md.delayed {
+						indexes = append(indexes, i)
+					}
+				}
+
+				index = indexes[rand.Intn(len(indexes))]
+				md = mw.MessagesDelay[index]
+			}
+
+			mw.messageHandler(md.msg)
+			mw.MessagesDelay[index].delayed = true
+		}
+
+	}
 }

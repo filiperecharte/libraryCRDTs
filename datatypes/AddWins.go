@@ -45,9 +45,9 @@ func (a AddWins) Commutes(op1 communication.Operation, op2 communication.Operati
 }
 
 // initialize counter replica
-func NewAddWinsReplica(id string, channels map[string]chan any) *replica.Replica {
+func NewAddWinsReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
 	c := crdt.EcroCRDT{Id: id, Data: AddWins{id}, Stable_st: mapset.NewSet[any](), Unstable_operations: []communication.Operation{}, Unstable_st: mapset.NewSet[any]()}
 
-	return replica.NewReplica(id, &c, channels)
+	return replica.NewReplica(id, &c, channels, delay)
 }

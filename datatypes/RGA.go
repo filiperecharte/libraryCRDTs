@@ -65,10 +65,10 @@ func (r *RGA) Apply(state any, operations []communication.Operation) any {
 }
 
 // initialize RGA
-func NewRGAReplica(id string, channels map[string]chan any) *replica.Replica {
+func NewRGAReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 	r := crdt.CommutativeCRDT{Data: &RGA{}, Stable_st: []Vertex{}}
 
-	return replica.NewReplica(id, &r, channels)
+	return replica.NewReplica(id, &r, channels, delay)
 }
 
 func indexOfVPtr(ptr Position, vertices []Vertex) int {

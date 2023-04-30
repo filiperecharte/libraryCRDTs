@@ -17,9 +17,9 @@ func (c Counter) Apply(state any, operations []communication.Operation) any {
 }
 
 // initialize counter replica
-func NewCounterReplica(id string, channels map[string]chan any) *replica.Replica {
+func NewCounterReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
 	c := crdt.CommutativeCRDT{Data: Counter{}, Stable_st: 0}
 
-	return replica.NewReplica(id, &c, channels)
+	return replica.NewReplica(id, &c, channels, delay)
 }

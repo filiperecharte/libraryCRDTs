@@ -23,9 +23,9 @@ func (r PNCounter) Apply(state any, operations []communication.Operation) any {
 }
 
 // initialize counter
-func NewPNCounterReplica(id string, channels map[string]chan interface{}) *replica.Replica {
+func NewPNCounterReplica(id string, channels map[string]chan interface{}, delay int) *replica.Replica {
 
 	c := crdt.CommutativeCRDT{Data: PNCounter{}, Stable_st: 0}
 
-	return replica.NewReplica(id, &c, channels)
+	return replica.NewReplica(id, &c, channels, delay)
 }

@@ -37,7 +37,7 @@ func TestCounter(t *testing.T) {
 				defer wg.Done()
 				// Perform random number of add operations
 				for j := 0; j < len(adds); j++ {
-					r.Prepare("Add", adds[j])
+					r.Prepare("Add", adds[rand.Intn(len(adds))])
 				}
 			}(replicas[i], adds)
 		}
@@ -45,7 +45,21 @@ func TestCounter(t *testing.T) {
 		// Wait for all goroutines to finish
 		wg.Wait()
 
-		time.Sleep(5 * time.Second)
+		// Wait for all replicas to receive all messages
+		for {
+			flag := false
+			for i := 0; i < numReplicas; i++ {
+				if replicas[i].Crdt.NumOps() == uint64(numReplicas*(len(adds))) {
+					flag = true
+				} else {
+					flag = false
+					break
+				}
+			}
+			if flag {
+				break
+			}
+		}
 
 		// Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
@@ -77,7 +91,8 @@ func TestCounter(t *testing.T) {
 
 	// Define config for quick.Check
 	config := &quick.Config{
-		MaxCount: 1,
+		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
+		MaxCount: 10,
 		Values:   gen,
 	}
 

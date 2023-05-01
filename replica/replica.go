@@ -22,6 +22,9 @@ type CrdtI interface {
 	// Query made by a client to a replica that returns the current state of the CRDT
 	// after applying the unstable operations into the CRDT stable state
 	Query() any
+
+	// Returns the number of operations applied to the CRDT for testing purposes
+	NumOps() uint64
 }
 
 type Replica struct {
@@ -55,7 +58,7 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}, del
 func (r *Replica) TCBcast(operation communication.Operation) {
 	msg := communication.NewMessage(communication.DLV, operation.Type, operation.Value, operation.Version, r.id)
 	r.Crdt.Effect(msg.Operation)
-	//log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
+	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 	r.middleware.Tcbcast <- msg
 }
 
@@ -65,14 +68,12 @@ func (r *Replica) dequeue() {
 	for {
 		msg := <-r.middleware.DeliverCausal
 		if msg.Type == communication.DLV {
-			if r.id == "0" {
-				log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
-			}
+			log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)
 			r.Crdt.Effect(msg.Operation)
 		} else if msg.Type == communication.STB {
-			//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+			log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 			r.Crdt.Stabilize(msg.Operation)
 		}
 	}

@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"log"
 )
 
 // data interface
@@ -23,16 +24,18 @@ type EcroCRDT struct {
 	Stable_st           any       // stable state
 	Unstable_operations []communication.Operation
 	Unstable_st         any //most recent state
+	N_Ops              uint64
 }
 
 func (r *EcroCRDT) Effect(op communication.Operation) {
-	if r.after(op, r.Unstable_operations) {
-		r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
-		r.Unstable_operations = append(r.Unstable_operations, op)
-	} else {
-		r.Unstable_operations = append(r.Unstable_operations, op)
-		r.Unstable_st = r.Data.Apply(r.Stable_st, r.order(r.Unstable_operations))
-	}
+	// if r.after(op, r.Unstable_operations) {
+	// 	r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
+	// 	r.Unstable_operations = append(r.Unstable_operations, op)
+	// } else {
+	r.Unstable_operations = append(r.Unstable_operations, op)
+	r.Unstable_st = r.Data.Apply(r.Stable_st, r.order(r.Unstable_operations))
+	//}
+	r.N_Ops++
 }
 
 func (r *EcroCRDT) Stabilize(op communication.Operation) {
@@ -48,7 +51,15 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 }
 
 func (r *EcroCRDT) Query() any {
+	if r.Id == "0" {
+		log.Println("REPLICA", r.Id, "UNORDERED", r.Unstable_operations)
+		log.Println("REPLICA", r.Id, "ORDERED", r.order(r.Unstable_operations))
+	}
 	return r.Unstable_st
+}
+
+func (r *EcroCRDT) NumOps() uint64 {
+	return r.N_Ops
 }
 
 func (r *EcroCRDT) after(op communication.Operation, operations []communication.Operation) bool {

@@ -3,7 +3,6 @@ package middleware
 import (
 	"library/packages/communication"
 	"library/packages/utils"
-	"log"
 	"math/rand"
 	"sort"
 	"sync"
@@ -127,7 +126,6 @@ func (mw *Middleware) receive() {
 
 // checks DQ to see if new messages can be delivered
 func (mw *Middleware) deliver() {
-	log.Println("[REPLICA", mw.replica, "] START DELIVER")
 	from := 0
 	to := 0
 	for {
@@ -155,7 +153,6 @@ func (mw *Middleware) deliver() {
 			from++
 		}
 	}
-	log.Println("[REPLICA", mw.replica, "] END DELIVER")
 }
 
 // check if a message has his causal predecessors delivered

@@ -4,6 +4,7 @@ import (
 	"library/packages/communication"
 	"library/packages/middleware"
 	"library/packages/utils"
+	"log"
 	"sync"
 )
 
@@ -60,7 +61,7 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}, del
 func (r *Replica) TCBcast(operation communication.Operation) {
 	msg := communication.NewMessage(communication.DLV, operation.Type, operation.Value, operation.Version, r.id)
 	r.Crdt.Effect(msg.Operation)
-	//log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
+	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 	r.middleware.Tcbcast <- msg
 }
 
@@ -70,14 +71,14 @@ func (r *Replica) dequeue() {
 	for {
 		msg := <-r.middleware.DeliverCausal
 		if msg.Type == communication.DLV {
-			//log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
+			log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)
 			r.prepareLock.Lock()
 			r.Crdt.Effect(msg.Operation)
 			r.prepareLock.Unlock()
 		} else if msg.Type == communication.STB {
-			//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+			log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 			r.Crdt.Stabilize(msg.Operation)
 		}
 	}

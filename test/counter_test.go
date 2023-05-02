@@ -3,6 +3,7 @@ package test
 import (
 	"library/packages/datatypes"
 	"library/packages/replica"
+	"log"
 	"math/rand"
 	"reflect"
 	"strconv"
@@ -26,7 +27,7 @@ func TestCounter(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewCounterReplica(strconv.Itoa(i), channels, 2*len(adds))
+			replicas[i] = datatypes.NewCounterReplica(strconv.Itoa(i), channels, 0)
 		}
 
 		// Start a goroutine for each replica
@@ -44,6 +45,7 @@ func TestCounter(t *testing.T) {
 
 		// Wait for all goroutines to finish
 		wg.Wait()
+		log.Println("DONE WAITING FOR GOROUTINES")
 
 		// Wait for all replicas to receive all messages
 		for {
@@ -60,6 +62,8 @@ func TestCounter(t *testing.T) {
 				break
 			}
 		}
+
+		log.Println("DONE WAITING FOR MESSAGES TO BE RECEIVED")
 
 		// Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
@@ -82,7 +86,7 @@ func TestCounter(t *testing.T) {
 		adds := make([]int, numAdds)
 
 		for i := 0; i < numAdds; i++ {
-			adds = []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+			adds = []int{1, 2, 3, 4, 5, 7, 8, 9, 10}
 		}
 
 		vals[0] = reflect.ValueOf(adds)
@@ -92,7 +96,7 @@ func TestCounter(t *testing.T) {
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 10,
+		MaxCount: 40,
 		Values:   gen,
 	}
 

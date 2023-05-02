@@ -3,6 +3,7 @@ package middleware
 import (
 	"library/packages/communication"
 	"library/packages/utils"
+	"log"
 	"math/rand"
 	"sort"
 	"sync"
@@ -91,6 +92,7 @@ func (mw *Middleware) dequeue() {
 		mw.DeliveredVersion.Tick(mw.replica)
 		mw.updatestability(msg)
 		mw.broadcast(msg)
+
 	}
 }
 
@@ -125,6 +127,7 @@ func (mw *Middleware) receive() {
 
 // checks DQ to see if new messages can be delivered
 func (mw *Middleware) deliver() {
+	log.Println("[REPLICA", mw.replica, "] START DELIVER")
 	from := 0
 	to := 0
 	for {
@@ -152,6 +155,7 @@ func (mw *Middleware) deliver() {
 			from++
 		}
 	}
+	log.Println("[REPLICA", mw.replica, "] END DELIVER")
 }
 
 // check if a message has his causal predecessors delivered
@@ -225,8 +229,9 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 // If it is not, then the minimums of the columns are the same and Min has not changed.
 func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 	newStableVersion := mw.StableVersion.Copy()
-	min := mw.Min
-	for keyMin, _ := range min.m {
+
+	mw.Min.Lock()
+	for keyMin, _ := range mw.Min.m {
 		if keyMin == j {
 			min := mw.Observed.GetTick(j, keyMin)
 			minRow := keyMin
@@ -241,14 +246,11 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 				}
 			}
 			mw.Observed.Unlock()
-
 			newStableVersion.Set(keyMin, min)
-
-			mw.Min.Lock()
 			mw.Min.m[keyMin] = minRow
-			mw.Min.Unlock()
 		}
 	}
+	mw.Min.Unlock()
 	return newStableVersion
 }
 

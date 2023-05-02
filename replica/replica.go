@@ -4,7 +4,7 @@ import (
 	"library/packages/communication"
 	"library/packages/middleware"
 	"library/packages/utils"
-	"log"
+	"sync"
 )
 
 //type ReplicaID string
@@ -33,6 +33,7 @@ type Replica struct {
 	replicas      map[string]chan interface{}
 	middleware    *middleware.Middleware
 	VersionVector communication.VClock
+	prepareLock   *sync.RWMutex
 }
 
 func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}, delay int) *Replica {
@@ -46,6 +47,7 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}, del
 		replicas:      channels,
 		middleware:    middleware.NewMiddleware(id, ids, channels, delay),
 		VersionVector: communication.InitVClock(ids), //delivered version vector
+		prepareLock:   new(sync.RWMutex),
 	}
 
 	go r.dequeue()
@@ -58,7 +60,7 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}, del
 func (r *Replica) TCBcast(operation communication.Operation) {
 	msg := communication.NewMessage(communication.DLV, operation.Type, operation.Value, operation.Version, r.id)
 	r.Crdt.Effect(msg.Operation)
-	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
+	//log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 	r.middleware.Tcbcast <- msg
 }
 
@@ -68,12 +70,14 @@ func (r *Replica) dequeue() {
 	for {
 		msg := <-r.middleware.DeliverCausal
 		if msg.Type == communication.DLV {
-			log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
+			//log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)
+			r.prepareLock.Lock()
 			r.Crdt.Effect(msg.Operation)
+			r.prepareLock.Unlock()
 		} else if msg.Type == communication.STB {
-			log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+			//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 			r.Crdt.Stabilize(msg.Operation)
 		}
 	}
@@ -82,10 +86,12 @@ func (r *Replica) dequeue() {
 // Update made by a client to a replica that receives the operation to be applied to the CRDT
 // sends the operation to middleware for broadcast
 func (r *Replica) Prepare(operationType string, operationValue any) {
+	r.prepareLock.Lock()
 	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
 	op := communication.Operation{Type: operationType, Value: operationValue, Version: vv}
 	r.TCBcast(op)
+	r.prepareLock.Unlock()
 }
 
 func (r *Replica) GetID() string {

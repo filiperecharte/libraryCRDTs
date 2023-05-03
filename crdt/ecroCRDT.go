@@ -2,7 +2,6 @@ package crdt
 
 import (
 	"library/packages/communication"
-	"log"
 )
 
 // data interface
@@ -24,7 +23,7 @@ type EcroCRDT struct {
 	Stable_st           any       // stable state
 	Unstable_operations []communication.Operation
 	Unstable_st         any //most recent state
-	N_Ops              uint64
+	N_Ops               uint64
 }
 
 func (r *EcroCRDT) Effect(op communication.Operation) {
@@ -40,21 +39,17 @@ func (r *EcroCRDT) Effect(op communication.Operation) {
 
 func (r *EcroCRDT) Stabilize(op communication.Operation) {
 	//remove op from slice
-	for i, o := range r.Unstable_operations {
+	/*for i, o := range r.Unstable_operations {
 		if o.Type == op.Type && o.Value == op.Value {
 			r.Unstable_operations = append(r.Unstable_operations[:i], r.Unstable_operations[i+1:]...)
 			break
 		}
-	}
+	}*/
 
 	r.Data.Apply(r.Stable_st, []communication.Operation{op})
 }
 
 func (r *EcroCRDT) Query() any {
-	if r.Id == "0" {
-		log.Println("REPLICA", r.Id, "UNORDERED", r.Unstable_operations)
-		log.Println("REPLICA", r.Id, "ORDERED", r.order(r.Unstable_operations))
-	}
 	return r.Unstable_st
 }
 
@@ -110,6 +105,8 @@ func (r *EcroCRDT) order(operations []communication.Operation) []communication.O
 		for j := i + 1; j < len(sortedOperations); j++ {
 			if sortedOperations[i].Concurrent(sortedOperations[j]) && !r.Data.Order(sortedOperations[i], sortedOperations[j]) && !r.Data.Commutes(sortedOperations[i], sortedOperations[j]) {
 				// Swap operations[i] and operations[j] if operations are not ordered and do not commute
+				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
+			} else if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor {
 				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
 			}
 		}

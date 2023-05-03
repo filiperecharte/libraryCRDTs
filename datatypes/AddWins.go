@@ -23,15 +23,16 @@ func (a AddWins) Remove(state mapset.Set[any], elem any) mapset.Set[any] {
 }
 
 func (a AddWins) Apply(state any, operations []communication.Operation) any {
+	st := state.(mapset.Set[any]).Clone()
 	for _, op := range operations {
 		switch op.Type {
 		case "Add":
-			state = a.Add(state.(mapset.Set[any]), op)
+			state = a.Add(st, op)
 		case "Rem":
-			state = a.Remove(state.(mapset.Set[any]), op)
+			state = a.Remove(st, op)
 		}
 	}
-	return state
+	return st
 }
 
 func (a AddWins) Order(op1 communication.Operation, op2 communication.Operation) bool {
@@ -43,8 +44,6 @@ func (a AddWins) Order(op1 communication.Operation, op2 communication.Operation)
 func (a AddWins) Commutes(op1 communication.Operation, op2 communication.Operation) bool {
 	return op1.Type == op2.Type
 }
-
-
 
 // initialize counter replica
 func NewAddWinsReplica(id string, channels map[string]chan any, delay int) *replica.Replica {

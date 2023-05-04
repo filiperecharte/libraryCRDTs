@@ -27,26 +27,26 @@ type EcroCRDT struct {
 }
 
 func (r *EcroCRDT) Effect(op communication.Operation) {
-	// if r.after(op, r.Unstable_operations) {
-	// 	r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
-	// 	r.Unstable_operations = append(r.Unstable_operations, op)
-	// } else {
-	r.Unstable_operations = append(r.Unstable_operations, op)
-	r.Unstable_st = r.Data.Apply(r.Stable_st, r.order(r.Unstable_operations))
-	//}
+	if r.after(op, r.Unstable_operations) {
+		r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
+		r.Unstable_operations = append(r.Unstable_operations, op)
+	} else {
+		r.Unstable_operations = append(r.Unstable_operations, op)
+		r.Unstable_st = r.Data.Apply(r.Stable_st, r.order(r.Unstable_operations))
+	}
 	r.N_Ops++
 }
 
 func (r *EcroCRDT) Stabilize(op communication.Operation) {
 	//remove op from slice
-	/*for i, o := range r.Unstable_operations {
-		if o.Type == op.Type && o.Value == op.Value {
-			r.Unstable_operations = append(r.Unstable_operations[:i], r.Unstable_operations[i+1:]...)
-			break
-		}
-	}*/
+	// for i, o := range r.Unstable_operations {
+	// 	if o.Equals(op) {
+	// 		r.Unstable_operations = append(r.Unstable_operations[:i], r.Unstable_operations[i+1:]...)
+	// 		break
+	// 	}
+	// }
 
-	r.Data.Apply(r.Stable_st, []communication.Operation{op})
+	// r.Stable_st = r.Data.Apply(r.Stable_st, []communication.Operation{op})
 }
 
 func (r *EcroCRDT) Query() any {
@@ -78,7 +78,7 @@ func (r *EcroCRDT) commutes(op communication.Operation, operations []communicati
 // it is safe to apply an update after all unstable operations when, if ordered, it would be the last operation
 func (r *EcroCRDT) order_after(op communication.Operation, operations []communication.Operation) bool {
 	for _, op2 := range operations {
-		if op.Concurrent(op2) && r.Data.Order(op2, op) {
+		if op.Concurrent(op2) && !r.Data.Order(op2, op) && !r.Data.Commutes(op2, op) {
 			return false
 		}
 	}

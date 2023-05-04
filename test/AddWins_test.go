@@ -86,18 +86,13 @@ func TestAddWins(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		numOps := 2
-		adds := make([]int, numOps)
-		rems := make([]int, numOps)
 
-		for i := 0; i < numOps; i++ {
-			adds = []int{1, 2, 3, 4}
-			rems = []int{1, 2, 3}
-		}
+		adds := []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
+		rems := []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 		vals[0] = reflect.ValueOf(adds)
 		vals[1] = reflect.ValueOf(rems)
-		vals[2] = reflect.ValueOf(3)
+		vals[2] = reflect.ValueOf(5)
 	}
 
 	// Define config for quick.Check

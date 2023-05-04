@@ -10,25 +10,6 @@ const (
 	STB int = 2
 )
 
-const (
-	ADD int = 0
-	REM int = 1
-)
-
-type Operation struct {
-	Type    string // operation type
-	Value   any    // value of the operation submitted by user
-	Version VClock // vector clock kept for keeping causal order
-}
-
-// Compares two operations to see if they are concurrent
-func (e *Operation) Concurrent(other Operation) bool {
-	if e.Version.Compare(other.Version) == Concurrent && e.Value == other.Value {
-		return true
-	}
-	return false
-}
-
 type Message struct {
 	Type      int    // type of message
 	Operation        // operation submitted by user

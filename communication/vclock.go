@@ -90,10 +90,10 @@ func (vc VClock) Tick(id string) {
 
 // VClockEqual returns true if the two vector clocks are equal.
 func (vc VClock) Equal(vc1 VClock) bool {
-	vc.Lock()
-	defer vc.Unlock()
-	vc1.Lock()
-	defer vc1.Unlock()
+	// vc.Lock()
+	// defer vc.Unlock()
+	// vc1.Lock()
+	// defer vc1.Unlock()
 
 	if len(vc.m) != len(vc1.m) {
 		return false

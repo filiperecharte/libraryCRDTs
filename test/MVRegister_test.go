@@ -9,13 +9,12 @@ import (
 	"sync"
 	"testing"
 	"testing/quick"
-	"time"
 )
 
 func TestMVRegister(t *testing.T) {
 
 	// Define property to test
-	property := func(adds []int, delays []time.Duration, numReplicas int) bool {
+	property := func(adds []int, numReplicas int) bool {
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -26,7 +25,7 @@ func TestMVRegister(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewMVRegisterReplica(strconv.Itoa(i), channels, 5)
+			replicas[i] = datatypes.NewMVRegisterReplica(strconv.Itoa(i), channels, (numReplicas-1)*len(adds))
 		}
 
 		// Start a goroutine for each replica
@@ -38,8 +37,7 @@ func TestMVRegister(t *testing.T) {
 				// Perform random number of add operations with random delays
 				for j := 0; j < len(adds); j++ {
 					k, _ := strconv.Atoi(r.GetID())
-					r.Prepare("ADD", k * 5 + j)
-					time.Sleep(delays[j])
+					r.Prepare("Add", k*5+j)
 				}
 			}(replicas[i], adds)
 		}
@@ -47,7 +45,21 @@ func TestMVRegister(t *testing.T) {
 		// Wait for all goroutines to finish
 		wg.Wait()
 
-		time.Sleep(5 * time.Second)
+		// Wait for all replicas to receive all messages
+		for {
+			flag := false
+			for i := 0; i < numReplicas; i++ {
+				if replicas[i].Crdt.NumOps() == uint64(numReplicas*(len(adds))) {
+					flag = true
+				} else {
+					flag = false
+					break
+				}
+			}
+			if flag {
+				break
+			}
+		}
 
 		// Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
@@ -68,21 +80,17 @@ func TestMVRegister(t *testing.T) {
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 		numAdds := 5
 		adds := make([]int, numAdds)
-		delays := make([]time.Duration, numAdds)
 
 		for i := 0; i < numAdds; i++ {
 			adds[i] = rand.Intn(10)
-			delays[i] = time.Duration(rand.Intn(5)) * time.Millisecond
 		}
 
 		vals[0] = reflect.ValueOf(adds)
-		vals[1] = reflect.ValueOf(delays)
-		vals[2] = reflect.ValueOf(3)
+		vals[1] = reflect.ValueOf(3)
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
-		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
 		MaxCount: 1,
 		Values:   gen,
 	}

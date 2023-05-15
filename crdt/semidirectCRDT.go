@@ -29,7 +29,7 @@ func (r *SemidirectCRDT) Effect(op communication.Operation) {
 
 func (r *SemidirectCRDT) Stabilize(op communication.Operation) {
 	for i, o := range r.Unstable_operations {
-		if o.Type == op.Type && o.Value == op.Value {
+		if o.Equals(op) {
 			r.Unstable_operations = append(r.Unstable_operations[:i], r.Unstable_operations[i+1:]...)
 			break
 		}

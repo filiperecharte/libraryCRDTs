@@ -39,14 +39,12 @@ func (r *EcroCRDT) Effect(op communication.Operation) {
 
 func (r *EcroCRDT) Stabilize(op communication.Operation) {
 	//remove op from slice
-	// for i, o := range r.Unstable_operations {
-	// 	if o.Equals(op) {
-	// 		r.Unstable_operations = append(r.Unstable_operations[:i], r.Unstable_operations[i+1:]...)
-	// 		break
-	// 	}
-	// }
+	first := r.order(r.Unstable_operations)[0]
+	if first.Equals(op) {
+		r.Unstable_operations = r.Unstable_operations[1:]
+	}
 
-	// r.Stable_st = r.Data.Apply(r.Stable_st, []communication.Operation{op})
+	r.Stable_st = r.Data.Apply(r.Stable_st, []communication.Operation{op})
 }
 
 func (r *EcroCRDT) Query() any {
@@ -97,16 +95,17 @@ func (r *EcroCRDT) causally_after(op communication.Operation, operations []commu
 }
 
 // order operations
+// TODO prioridade é manter causalidade e não o set ser add-wins
 func (r *EcroCRDT) order(operations []communication.Operation) []communication.Operation {
 	sortedOperations := make([]communication.Operation, len(operations))
 	copy(sortedOperations, operations)
 
 	for i := 0; i < len(sortedOperations); i++ {
 		for j := i + 1; j < len(sortedOperations); j++ {
-			if sortedOperations[i].Concurrent(sortedOperations[j]) && !r.Data.Order(sortedOperations[i], sortedOperations[j]) && !r.Data.Commutes(sortedOperations[i], sortedOperations[j]) {
-				// Swap operations[i] and operations[j] if operations are not ordered and do not commute
+			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor {
 				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
-			} else if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor {
+			} else if sortedOperations[i].Concurrent(sortedOperations[j]) && !r.Data.Order(sortedOperations[i], sortedOperations[j]) && !r.Data.Commutes(sortedOperations[i], sortedOperations[j]) {
+				// Swap operations[i] and operations[j] if operations are not ordered and do not commute
 				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
 			}
 		}

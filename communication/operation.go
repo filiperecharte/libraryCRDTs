@@ -1,10 +1,5 @@
 package communication
 
-const (
-	ADD int = 0
-	REM int = 1
-)
-
 type Operation struct {
 	Type    string // operation type
 	Value   any    // value of the operation submitted by user

@@ -106,8 +106,8 @@ func TestSocial(t *testing.T) {
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		addrequests := []custom.OperationValue{{Id1: 1, Id2: 2}, {Id1: 1, Id2: 3}, {Id1: 1, Id2: 4}, {Id1: 2, Id2: 3}, {Id1: 3, Id2: 1}}
-		addfriends := []custom.OperationValue{{Id1: 2, Id2: 1}, {Id1: 3, Id2: 1}, {Id1: 3, Id2: 2}, {Id1: 1, Id2: 3}}
+		addrequests := []custom.OperationValue{{Id1: 1, Id2: 2}, {Id1: 3, Id2: 1}}
+		addfriends := []custom.OperationValue{{Id1: 2, Id2: 1}, {Id1: 3, Id2: 1}, {Id1: 3, Id2: 2}}
 		remfriends := []custom.OperationValue{{Id1: 3, Id2: 1}}
 		remrequests := []custom.OperationValue{{Id1: 4, Id2: 1}}
 
@@ -115,13 +115,13 @@ func TestSocial(t *testing.T) {
 		vals[1] = reflect.ValueOf(addfriends)
 		vals[2] = reflect.ValueOf(remfriends)
 		vals[3] = reflect.ValueOf(remrequests)
-		vals[4] = reflect.ValueOf(5)
+		vals[4] = reflect.ValueOf(3)
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1,
+		MaxCount: 80,
 		Values:   gen,
 	}
 

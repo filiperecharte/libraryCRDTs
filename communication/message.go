@@ -13,15 +13,13 @@ const (
 type Message struct {
 	Type      int    // type of message
 	Operation        // operation submitted by user
-	OriginID  string // replica which originally generated an message
 }
 
 // NewMessage creates a new message with the given value and version vector
 func NewMessage(tp int, operation string, value any, version VClock, originID string) Message {
 	return Message{
 		Type:      tp,
-		Operation: Operation{Type: operation, Value: value, Version: version},
-		OriginID:  originID,
+		Operation: Operation{Type: operation, Value: value, Version: version, OriginID: originID},
 	}
 }
 

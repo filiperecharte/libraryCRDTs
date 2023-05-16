@@ -34,7 +34,7 @@ func (s Social) AddFriend(state SocialState, elem any) SocialState {
 func (s Social) AddRequest(state SocialState, elem any) SocialState {
 	elem = elem.(communication.Operation).Value
 	id1, id2 := elem.(OperationValue).Id1, elem.(OperationValue).Id2
-	state.Friends[id1].Add(id2)
+	state.Requests[id1].Add(id2)
 	return state
 }
 
@@ -42,6 +42,7 @@ func (s Social) RemFriend(state SocialState, elem any) SocialState {
 	elem = elem.(communication.Operation).Value
 	id1, id2 := elem.(OperationValue).Id1, elem.(OperationValue).Id2
 	state.Friends[id1].Remove(id2)
+	state.Friends[id2].Remove(id1)
 	return state
 }
 
@@ -77,11 +78,16 @@ func (a Social) Order(op1 communication.Operation, op2 communication.Operation) 
 
 	return op1.Type == "RemFriend" && op2.Type == "AddFriend" ||
 		op1.Type == "RemRequest" && op2.Type == "AddRequest" ||
-		op1.Type == "AddFriend" && op2.Type == "AddRequest"
+		op1.Type == "AddRequest" && op2.Type == "AddFriend"
 }
 
 func (a Social) Commutes(op1 communication.Operation, op2 communication.Operation) bool {
 	return op1.Type == op2.Type
+}
+
+func (a Social) Equals(op1 communication.Operation, op2 communication.Operation) bool {
+	return (op1.Value.(OperationValue).Id1 == op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 == op2.Value.(OperationValue).Id2) ||
+		(op1.Value.(OperationValue).Id1 == op2.Value.(OperationValue).Id2 && op1.Value.(OperationValue).Id2 == op2.Value.(OperationValue).Id1)
 }
 
 // initialize counter replica
@@ -103,7 +109,7 @@ func NewSocialReplica(id string, channels map[string]chan any, delay int) *repli
 	return replica.NewReplica(id, &c, channels, delay)
 }
 
-// compares if two SocialState are equal
+// compares if two SocialState are equal for test reasons
 func CompareSocialStates(s1 SocialState, s2 SocialState) bool {
 	for i := 0; i < 5; i++ {
 		if !s1.Friends[i].Equal(s2.Friends[i]) {

@@ -45,6 +45,10 @@ func (a AddWins) Commutes(op1 communication.Operation, op2 communication.Operati
 	return op1.Type == op2.Type
 }
 
+func (a AddWins) Equals(op1 communication.Operation, op2 communication.Operation) bool {
+	return op1.Value == op2.Value
+}
+
 // initialize counter replica
 func NewAddWinsReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 

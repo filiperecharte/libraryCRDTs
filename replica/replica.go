@@ -59,7 +59,7 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}, del
 // Broadcasts a message by incrementing the replica's own entry in the version vector
 // and enqueuing the message with the updated version vector to the middleware process.
 func (r *Replica) TCBcast(operation communication.Operation) {
-	msg := communication.NewMessage(communication.DLV, operation.Type, operation.Value, operation.Version, r.id)
+	msg := communication.NewMessage(communication.DLV, operation.Type, operation.Value, operation.Version, operation.OriginID)
 	r.Crdt.Effect(msg.Operation)
 	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 	r.middleware.Tcbcast <- msg
@@ -72,9 +72,9 @@ func (r *Replica) dequeue() {
 		msg := <-r.middleware.DeliverCausal
 		if msg.Type == communication.DLV {
 			log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
+			r.prepareLock.Lock()
 			t := msg.Version.FindTicks(msg.OriginID)
 			r.VersionVector.Set(msg.OriginID, t)
-			r.prepareLock.Lock()
 			r.Crdt.Effect(msg.Operation)
 			r.prepareLock.Unlock()
 		} else if msg.Type == communication.STB {
@@ -90,7 +90,7 @@ func (r *Replica) Prepare(operationType string, operationValue any) {
 	r.prepareLock.Lock()
 	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
-	op := communication.Operation{Type: operationType, Value: operationValue, Version: vv}
+	op := communication.Operation{Type: operationType, Value: operationValue, Version: vv, OriginID: r.id}
 	r.TCBcast(op)
 	r.prepareLock.Unlock()
 }

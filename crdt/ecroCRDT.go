@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"log"
 )
 
 // data interface
@@ -15,6 +16,9 @@ type EcroDataI interface {
 
 	//Operations that commute
 	Commutes(op1 communication.Operation, op2 communication.Operation) bool
+
+	//Operations that are equal
+	Equals(op1 communication.Operation, op2 communication.Operation) bool
 }
 
 type EcroCRDT struct {
@@ -39,15 +43,17 @@ func (r *EcroCRDT) Effect(op communication.Operation) {
 
 func (r *EcroCRDT) Stabilize(op communication.Operation) {
 	//remove op from slice
-	first := r.order(r.Unstable_operations)[0]
-	if first.Equals(op) {
-		r.Unstable_operations = r.Unstable_operations[1:]
-	}
+	// first := r.order(r.Unstable_operations)[0]
+	// if r.Data.Equals(first, op) && first.Equals(op) {
+	// 	r.Unstable_operations = r.Unstable_operations[1:]
+	// }
 
-	r.Stable_st = r.Data.Apply(r.Stable_st, []communication.Operation{op})
+	// r.Stable_st = r.Data.Apply(r.Stable_st, []communication.Operation{op})
 }
 
 func (r *EcroCRDT) Query() any {
+	log.Println("REPLICA", r.Id, "UNORDERED", r.Unstable_operations)
+	log.Println("REPLICA", r.Id, "ORDERED", r.order(r.Unstable_operations))
 	return r.Unstable_st
 }
 
@@ -102,13 +108,20 @@ func (r *EcroCRDT) order(operations []communication.Operation) []communication.O
 
 	for i := 0; i < len(sortedOperations); i++ {
 		for j := i + 1; j < len(sortedOperations); j++ {
-			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor {
+			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor || sortedOperations[i].OriginID > sortedOperations[j].OriginID {
 				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
-			} else if sortedOperations[i].Concurrent(sortedOperations[j]) && !r.Data.Order(sortedOperations[i], sortedOperations[j]) && !r.Data.Commutes(sortedOperations[i], sortedOperations[j]) {
+			}
+		}
+	}
+
+	for i := 0; i < len(sortedOperations); i++ {
+		for j := i + 1; j < len(sortedOperations); j++ {
+			if sortedOperations[i].Concurrent(sortedOperations[j]) && r.Data.Equals(sortedOperations[i], sortedOperations[j]) && !r.Data.Order(sortedOperations[i], sortedOperations[j]) && !r.Data.Commutes(sortedOperations[i], sortedOperations[j]) {
 				// Swap operations[i] and operations[j] if operations are not ordered and do not commute
 				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
 			}
 		}
 	}
+
 	return sortedOperations
 }

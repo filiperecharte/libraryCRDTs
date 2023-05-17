@@ -42,7 +42,7 @@ func (e Egame) RemTournament(state EgameState, elem any) EgameState {
 		}
 	}
 
-	state.Enrolled = mapset.NewSet[Enroll](enrolled...)
+	state.Enrolled = mapset.NewSet(enrolled...)
 
 	return state
 }
@@ -67,7 +67,7 @@ func (e Egame) RemPlayer(state EgameState, elem any) EgameState {
 		}
 	}
 
-	state.Enrolled = mapset.NewSet[Enroll](enrolled...)
+	state.Enrolled = mapset.NewSet(enrolled...)
 
 	return state
 }

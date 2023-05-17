@@ -60,12 +60,45 @@ func Order(operations []communication.Operation) []communication.Operation {
 		}
 	}
 
-	for i := 0; i < len(sortedOperations); i++ {
-		for j := i + 1; j < len(sortedOperations); j++ {
-			if sortedOperations[i].Concurrent(sortedOperations[j]) && Equals(sortedOperations[i], sortedOperations[j]) && !Orde(sortedOperations[i], sortedOperations[j]) && !Commutes(sortedOperations[i], sortedOperations[j]) {
+	for i := 1; i < len(sortedOperations); i++ {
+		for j := i - 1; j >= 0; j-- {
+
+			if j == 0 {
+				if i == j+1 {
+					break
+				}
+
+				op := sortedOperations[i]
+
+				// Remove the element from the original position
+				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)
+
+				// Insert the element at the new position
+				sortedOperations = append([]communication.Operation{op}, sortedOperations[0:]...)
+
+				break
+			}
+
+			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor || (sortedOperations[i].Concurrent(sortedOperations[j]) && Orde(sortedOperations[j], sortedOperations[i])) {
+				if i == j+1 {
+					break
+				}
+
+				op1 := sortedOperations[i]
+
 				// Swap operations[i] and operations[j] if they meet the condition.
+				log.Println("----SORTED OPERATIONS----")
+				for _, op := range sortedOperations {
+					log.Println(op)
+				}
 				log.Println("[SWAP]", sortedOperations[i], sortedOperations[j])
-				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
+				// Remove the element from the original position
+				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)
+
+				// Insert the element at the new position
+				sortedOperations = append(sortedOperations[:j+1], append([]communication.Operation{op1}, sortedOperations[j+1:]...)...)
+
+				break
 			}
 		}
 	}
@@ -108,7 +141,7 @@ func main() {
 		finalOperations[i], _ = parseMessage(operations[i])
 	}
 
-	log.Println(finalOperations)
+	//log.Println(finalOperations)
 
 	//sort operations
 	sortedOperations := make([]communication.Operation, len(operations))
@@ -168,8 +201,6 @@ func parseMessage(input string) (communication.Operation, error) {
 	endIndex = strings.Index(input[startIndex:], "}") + startIndex
 
 	originID := input[startIndex:endIndex]
-
-	log.Println("ORIGIN ID", originID)
 
 	message.OriginID = originID
 

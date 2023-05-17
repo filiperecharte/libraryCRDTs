@@ -115,7 +115,7 @@ func (r *EcroCRDT) order(operations []communication.Operation) []communication.O
 	}
 
 	for i := 0; i < len(sortedOperations); i++ {
-		for j := i + 1; j < len(sortedOperations); j++ {
+		for j := i - 1; j >= 0; j-- {
 			if sortedOperations[i].Concurrent(sortedOperations[j]) && r.Data.Equals(sortedOperations[i], sortedOperations[j]) && !r.Data.Order(sortedOperations[i], sortedOperations[j]) && !r.Data.Commutes(sortedOperations[i], sortedOperations[j]) {
 				// Swap operations[i] and operations[j] if operations are not ordered and do not commute
 				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]

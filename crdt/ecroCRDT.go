@@ -2,7 +2,6 @@ package crdt
 
 import (
 	"library/packages/communication"
-	"log"
 )
 
 // data interface
@@ -16,9 +15,6 @@ type EcroDataI interface {
 
 	//Operations that commute
 	Commutes(op1 communication.Operation, op2 communication.Operation) bool
-
-	//Operations that are equal
-	Equals(op1 communication.Operation, op2 communication.Operation) bool
 }
 
 type EcroCRDT struct {
@@ -52,8 +48,8 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 }
 
 func (r *EcroCRDT) Query() any {
-	log.Println("REPLICA", r.Id, "UNORDERED", r.Unstable_operations)
-	log.Println("REPLICA", r.Id, "ORDERED", r.order(r.Unstable_operations))
+	// log.Println("REPLICA", r.Id, "UNORDERED", r.Unstable_operations)
+	// log.Println("REPLICA", r.Id, "ORDERED", r.order(r.Unstable_operations))
 	return r.Unstable_st
 }
 
@@ -101,7 +97,6 @@ func (r *EcroCRDT) causally_after(op communication.Operation, operations []commu
 }
 
 // order operations
-// TODO prioridade é manter causalidade e não o set ser add-wins
 func (r *EcroCRDT) order(operations []communication.Operation) []communication.Operation {
 	sortedOperations := make([]communication.Operation, len(operations))
 	copy(sortedOperations, operations)
@@ -114,11 +109,31 @@ func (r *EcroCRDT) order(operations []communication.Operation) []communication.O
 		}
 	}
 
-	for i := 0; i < len(sortedOperations); i++ {
+	for i := 1; i < len(sortedOperations); i++ {
 		for j := i - 1; j >= 0; j-- {
-			if sortedOperations[i].Concurrent(sortedOperations[j]) && r.Data.Equals(sortedOperations[i], sortedOperations[j]) && !r.Data.Order(sortedOperations[i], sortedOperations[j]) && !r.Data.Commutes(sortedOperations[i], sortedOperations[j]) {
-				// Swap operations[i] and operations[j] if operations are not ordered and do not commute
-				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
+
+			if j == 0 {
+				if i == j+1 {
+					break
+				}
+
+				op := sortedOperations[i]
+				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)
+				sortedOperations = append([]communication.Operation{op}, sortedOperations[0:]...)
+
+				break
+			}
+
+			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor || (sortedOperations[i].Concurrent(sortedOperations[j]) && r.Data.Order(sortedOperations[j], sortedOperations[i]) && !r.Data.Commutes(sortedOperations[j], sortedOperations[i])) {
+				if i == j+1 {
+					break
+				}
+
+				op1 := sortedOperations[i]
+				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)
+				sortedOperations = append(sortedOperations[:j+1], append([]communication.Operation{op1}, sortedOperations[j+1:]...)...)
+
+				break
 			}
 		}
 	}

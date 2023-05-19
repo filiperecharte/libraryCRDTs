@@ -73,7 +73,7 @@ func (a Social) Order(op1 communication.Operation, op2 communication.Operation) 
 	//order map of operations by type of operation,
 	//remFriend < addFriend
 	//remRequest < addRequest
-	//addFriend < addRequest
+	//addRequest < addFriend
 	// rmFriend and rmRequest are commutative
 
 	return op1.Type == "RemFriend" && op2.Type == "AddFriend" ||
@@ -82,12 +82,10 @@ func (a Social) Order(op1 communication.Operation, op2 communication.Operation) 
 }
 
 func (a Social) Commutes(op1 communication.Operation, op2 communication.Operation) bool {
-	return op1.Type == op2.Type
-}
-
-func (a Social) Equals(op1 communication.Operation, op2 communication.Operation) bool {
-	return (op1.Value.(OperationValue).Id1 == op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 == op2.Value.(OperationValue).Id2) ||
-		(op1.Value.(OperationValue).Id1 == op2.Value.(OperationValue).Id2 && op1.Value.(OperationValue).Id2 == op2.Value.(OperationValue).Id1)
+	return op1.Type == op2.Type || 
+	op1.Value.(OperationValue).Id1 != op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 == op2.Value.(OperationValue).Id2 || 
+	op1.Value.(OperationValue).Id1 == op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 != op2.Value.(OperationValue).Id2 || 
+	op1.Value.(OperationValue).Id1 != op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 != op2.Value.(OperationValue).Id2
 }
 
 // initialize counter replica

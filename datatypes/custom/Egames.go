@@ -106,24 +106,23 @@ func (e Egame) Order(op1 communication.Operation, op2 communication.Operation) b
 }
 
 func (e Egame) Commutes(op1 communication.Operation, op2 communication.Operation) bool {
-	return op1.Type == op2.Type || 
-	(op1.Type == "AddPlayer" && op2.Type != "RemPlayer") || 
-	(op2.Type == "AddPlayer" && op1.Type != "RemPlayer") || 
-	(op1.Type == "AddTournament" && op2.Type != "RemTournament") ||
-	(op2.Type == "AddTournament" && op1.Type != "RemTournament")
-}
-
-func (e Egame) Equals(op1 communication.Operation, op2 communication.Operation) bool {
-	if enrollment, ok := op1.Value.(Enroll); ok {
-		if op2.Value == enrollment.Player || op2.Value == enrollment.Tournament {
+	if (op1.Type == op2.Type ||
+		(op1.Type == "AddPlayer" && op2.Type != "RemPlayer") ||
+		(op2.Type == "AddPlayer" && op1.Type != "RemPlayer") ||
+		(op1.Type == "AddTournament" && op2.Type != "RemTournament") ||
+		(op2.Type == "AddTournament" && op1.Type != "RemTournament")) && op1.Value != op2.Value {
+		return true
+	} else if enrollment, ok := op1.Value.(Enroll); ok {
+		if op2.Value != enrollment.Player && op2.Value != enrollment.Tournament {
 			return true
 		}
 	} else if enrollment, ok := op2.Value.(Enroll); ok {
-		if op1.Value == enrollment.Player || op1.Value == enrollment.Tournament {
+		if op1.Value != enrollment.Player && op1.Value != enrollment.Tournament {
 			return true
 		}
 	}
-	return op1.Value == op2.Value
+
+	return false
 }
 
 // initialize counter replica

@@ -26,12 +26,10 @@ func Orde(op1 communication.Operation, op2 communication.Operation) bool {
 }
 
 func Commutes(op1 communication.Operation, op2 communication.Operation) bool {
-	return op1.Type == op2.Type
-}
-
-func Equals(op1 communication.Operation, op2 communication.Operation) bool {
-	return (op1.Value.(OperationValue).Id1 == op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 == op2.Value.(OperationValue).Id2) ||
-		(op1.Value.(OperationValue).Id1 == op2.Value.(OperationValue).Id2 && op1.Value.(OperationValue).Id2 == op2.Value.(OperationValue).Id1)
+	return op1.Type == op2.Type ||
+		op1.Value.(OperationValue).Id1 != op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 == op2.Value.(OperationValue).Id2 ||
+		op1.Value.(OperationValue).Id1 == op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 != op2.Value.(OperationValue).Id2 ||
+		op1.Value.(OperationValue).Id1 != op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 != op2.Value.(OperationValue).Id2
 }
 
 /*-------------------------------------*/
@@ -60,9 +58,14 @@ func Order(operations []communication.Operation) []communication.Operation {
 		}
 	}
 
+	log.Println("----SORTED OPERATIONS----")
+	for _, op := range sortedOperations {
+		log.Println(op)
+	}
+
 	for i := 1; i < len(sortedOperations); i++ {
 		for j := i - 1; j >= 0; j-- {
-
+			log.Println("[COMPARING]", sortedOperations[i], sortedOperations[j])
 			if j == 0 {
 				if i == j+1 {
 					break
@@ -70,27 +73,27 @@ func Order(operations []communication.Operation) []communication.Operation {
 
 				op := sortedOperations[i]
 
+				log.Println("[SWAP END]", sortedOperations[i], sortedOperations[j])
+
 				// Remove the element from the original position
 				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)
 
 				// Insert the element at the new position
-				sortedOperations = append([]communication.Operation{op}, sortedOperations[0:]...)
+				sortedOperations = append([]communication.Operation{sortedOperations[0]}, append([]communication.Operation{op}, sortedOperations[1:]...)...)
 
 				break
 			}
 
-			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor || (sortedOperations[i].Concurrent(sortedOperations[j]) && Orde(sortedOperations[j], sortedOperations[i])) {
+			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor ||
+				(sortedOperations[i].Concurrent(sortedOperations[j]) && Orde(sortedOperations[j], sortedOperations[i]) && !Commutes(sortedOperations[j], sortedOperations[i])) {
 				if i == j+1 {
+					log.Println("[BREAK]", sortedOperations[i], sortedOperations[j])
 					break
 				}
 
 				op1 := sortedOperations[i]
 
 				// Swap operations[i] and operations[j] if they meet the condition.
-				log.Println("----SORTED OPERATIONS----")
-				for _, op := range sortedOperations {
-					log.Println(op)
-				}
 				log.Println("[SWAP]", sortedOperations[i], sortedOperations[j])
 				// Remove the element from the original position
 				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)

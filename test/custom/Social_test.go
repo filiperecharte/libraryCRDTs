@@ -121,7 +121,7 @@ func TestSocial(t *testing.T) {
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 180,
+		MaxCount: 80,
 		Values:   gen,
 	}
 

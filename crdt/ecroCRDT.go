@@ -22,6 +22,7 @@ type EcroCRDT struct {
 	Data                EcroDataI //data interface
 	Stable_st           any       // stable state
 	Unstable_operations []communication.Operation
+	Stable_operations   []communication.Operation
 	Unstable_st         any //most recent state
 	N_Ops               uint64
 }
@@ -38,13 +39,30 @@ func (r *EcroCRDT) Effect(op communication.Operation) {
 }
 
 func (r *EcroCRDT) Stabilize(op communication.Operation) {
-	//remove op from slice
-	// first := r.order(r.Unstable_operations)[0]
-	// if r.Data.Equals(first, op) && first.Equals(op) {
-	// 	r.Unstable_operations = r.Unstable_operations[1:]
-	// }
+	//add op to stable slice
+	r.Stable_operations = append(r.Stable_operations, op)
+	orderedOperations := r.order(r.Unstable_operations)
 
-	// r.Stable_st = r.Data.Apply(r.Stable_st, []communication.Operation{op})
+	//remove op from slice
+	first := orderedOperations[0]
+	//check if first exists in stable slice
+	for i, o := range r.Stable_operations {
+		if first.Equals(o) {
+			r.Stable_operations = append(r.Stable_operations[:i], r.Stable_operations[i+1:]...)
+
+			//remove first from unstable slice
+			for i1, o1 := range r.Unstable_operations {
+				if first.Equals(o1) {
+					r.Unstable_operations = append(r.Unstable_operations[:i1], r.Unstable_operations[i1+1:]...)
+					break
+				}
+			}
+
+			r.Stable_st = r.Data.Apply(r.Stable_st, []communication.Operation{op})
+			r.Unstable_st = r.Data.Apply(r.Stable_st, r.order(r.Unstable_operations))
+			break
+		}
+	}
 }
 
 func (r *EcroCRDT) Query() any {

@@ -49,7 +49,11 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 
 func (r *EcroCRDT) Query() any {
 	// log.Println("REPLICA", r.Id, "UNORDERED", r.Unstable_operations)
-	// log.Println("REPLICA", r.Id, "ORDERED", r.order(r.Unstable_operations))
+	// sortedOperations := r.order(r.Unstable_operations)
+	// log.Println("REPLICA", r.Id, "ORDERED")
+	// for _, op := range sortedOperations {
+	// 	log.Println(op)
+	// }
 	return r.Unstable_st
 }
 
@@ -119,7 +123,7 @@ func (r *EcroCRDT) order(operations []communication.Operation) []communication.O
 
 				op := sortedOperations[i]
 				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)
-				sortedOperations = append([]communication.Operation{op}, sortedOperations[0:]...)
+				sortedOperations = append([]communication.Operation{sortedOperations[0]}, append([]communication.Operation{op}, sortedOperations[1:]...)...)
 
 				break
 			}

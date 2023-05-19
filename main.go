@@ -41,16 +41,6 @@ func Order(operations []communication.Operation) []communication.Operation {
 
 	for i := 0; i < len(sortedOperations); i++ {
 		for j := i + 1; j < len(sortedOperations); j++ {
-			// log.Println("[COMPARE]", sortedOperations[i], sortedOperations[j])
-			// if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor {
-			// 	log.Println("[SWAP COMPARE]", sortedOperations[i], sortedOperations[j])
-			// 	sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
-			// } else if sortedOperations[i].Concurrent(sortedOperations[j]) && Equals(sortedOperations[i], sortedOperations[j]) && !Orde(sortedOperations[i], sortedOperations[j]) && !Commutes(sortedOperations[i], sortedOperations[j]) {
-			// 	// Swap operations[i] and operations[j] if they meet the condition.
-			// 	log.Println("[SWAP]", sortedOperations[i], sortedOperations[j])
-			// 	sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
-			// }
-
 			//order by originID
 			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor || sortedOperations[i].OriginID > sortedOperations[j].OriginID {
 				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]

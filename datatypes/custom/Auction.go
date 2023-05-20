@@ -43,6 +43,9 @@ func (a Auction) RemUser(state AuctionState, elem any) AuctionState {
 			i--
 		}
 	}
+
+	state.Bids = mapset.NewSet(bids...)
+
 	return state
 }
 
@@ -114,13 +117,13 @@ func NewAuctionReplica(id string, channels map[string]chan any, delay int) *repl
 	c := crdt.EcroCRDT{Id: id,
 		Data: Auction{id},
 		Stable_st: AuctionState{
-			Users:  mapset.NewSet[any](),
-			Bids:   mapset.NewSet[Bid](),
+			Users: mapset.NewSet[any](),
+			Bids:  mapset.NewSet[Bid](),
 		},
 		Unstable_operations: []communication.Operation{},
 		Unstable_st: AuctionState{
-			Users:  mapset.NewSet[any](),
-			Bids:   mapset.NewSet[Bid](),
+			Users: mapset.NewSet[any](),
+			Bids:  mapset.NewSet[Bid](),
 		},
 	}
 

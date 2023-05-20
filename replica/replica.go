@@ -35,6 +35,8 @@ type Replica struct {
 	middleware    *middleware.Middleware
 	VersionVector communication.VClock
 	prepareLock   *sync.RWMutex
+
+	quit chan bool
 }
 
 func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}, delay int) *Replica {
@@ -49,11 +51,19 @@ func NewReplica(id string, crdt CrdtI, channels map[string]chan interface{}, del
 		middleware:    middleware.NewMiddleware(id, ids, channels, delay),
 		VersionVector: communication.InitVClock(ids), //delivered version vector
 		prepareLock:   new(sync.RWMutex),
+
+		quit: make(chan bool),
 	}
 
 	go r.dequeue()
 
 	return r
+}
+
+// quits goroutines
+func (r *Replica) Quit() {
+	r.middleware.Quit()
+	r.quit <- true
 }
 
 // Broadcasts a message by incrementing the replica's own entry in the version vector
@@ -69,17 +79,22 @@ func (r *Replica) TCBcast(operation communication.Operation) {
 // Increments the sender's entry in the replica's version vector before calling the TCDeliver callback.
 func (r *Replica) dequeue() {
 	for {
-		msg := <-r.middleware.DeliverCausal
-		if msg.Type == communication.DLV {
-			log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
-			r.prepareLock.Lock()
-			t := msg.Version.FindTicks(msg.OriginID)
-			r.VersionVector.Set(msg.OriginID, t)
-			r.Crdt.Effect(msg.Operation)
-			r.prepareLock.Unlock()
-		} else if msg.Type == communication.STB {
-			log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
-			r.Crdt.Stabilize(msg.Operation)
+		select {
+		case <-r.quit:
+			return
+		default:
+			msg := <-r.middleware.DeliverCausal
+			if msg.Type == communication.DLV {
+				log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
+				r.prepareLock.Lock()
+				t := msg.Version.FindTicks(msg.OriginID)
+				r.VersionVector.Set(msg.OriginID, t)
+				r.Crdt.Effect(msg.Operation)
+				r.prepareLock.Unlock()
+			} else if msg.Type == communication.STB {
+				log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+				r.Crdt.Stabilize(msg.Operation)
+			}
 		}
 	}
 }

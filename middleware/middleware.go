@@ -53,6 +53,8 @@ type Middleware struct {
 	Rand            *rand.Rand     // random number generator
 	MessagesDelay   []MessageDelay // messages to be delayed (test purposes)
 	MessageDelayCtr int
+
+	quit chan bool
 }
 
 // creates middleware state
@@ -76,6 +78,8 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 		Delay:           delay,
 		MessagesDelay:   make([]MessageDelay, 0),
 		MessageDelayCtr: 0,
+
+		quit: make(chan bool),
 	}
 
 	go mw.dequeue()
@@ -84,14 +88,27 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 	return mw
 }
 
+// quits goroutines
+func (mw *Middleware) Quit() {
+	close(mw.DeliverCausal)
+	close(mw.Tcbcast)
+	mw.quit <- true
+}
+
 // run middleware by waiting for communication.Messages on Tcbcast channel
 func (mw *Middleware) dequeue() {
 	for {
-		msg := <-mw.Tcbcast
-		mw.DeliveredVersion.Tick(mw.replica)
-		mw.updatestability(msg)
-		mw.broadcast(msg)
-
+		select {
+		case <-mw.quit:
+			return
+		default:
+			msg := <-mw.Tcbcast
+			if msg.Version.RWMutex != nil {
+				mw.DeliveredVersion.Tick(mw.replica)
+				mw.updatestability(msg)
+				mw.broadcast(msg)
+			}
+		}
 	}
 }
 
@@ -111,14 +128,24 @@ func (mw *Middleware) broadcast(msg communication.Message) {
 // receive messages from other replicas
 func (mw *Middleware) receive() {
 	for {
-		m1 := <-mw.channels[mw.replica]
+		select {
+		case <-mw.quit:
+			return
+		default:
+			m1 := <-mw.channels[mw.replica]
 
-		m := m1.(communication.Message)
-		m.NewMutex() //because messages save pointers to mutexes
-		if mw.Delay != 0 {
-			mw.messageDelayerHandler(m)
-		} else {
-			mw.messageHandler(m)
+			m, ok := m1.(communication.Message)
+			
+			if !ok {
+				continue
+			}
+
+			m.NewMutex() //because messages save pointers to mutexes
+			if mw.Delay != 0 {
+				mw.messageDelayerHandler(m)
+			} else {
+				mw.messageHandler(m)
+			}
 		}
 
 	}

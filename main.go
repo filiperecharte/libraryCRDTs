@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"library/packages/communication"
+	"library/packages/datatypes/custom"
 	"log"
 	"strconv"
 	"strings"
+
+	mapset "github.com/deckarep/golang-set/v2"
 )
 
 type OperationValue struct {
@@ -103,49 +106,14 @@ func Order(operations []communication.Operation) []communication.Operation {
 
 func main() {
 
-	//create array of operations
+	//create two sets
+	set1 := mapset.NewSet[any]()
+	set2 := mapset.NewSet[any]()
 
-	operations := []string{
-		"{AddRequest {3 1} {0x14000416090 map[0:0 1:1 2:0]} 1}",
-		"{AddRequest {1 2} {0x140004160a8 map[0:0 1:2 2:0]} 1}",
-		"{RemRequest {4 1} {0x140000b0bb8 map[0:0 1:3 2:0]} 1}",
-		"{RemFriend {3 1} {0x1400010cd80 map[0:0 1:4 2:0]} 1}",
-		"{AddFriend {2 1} {0x1400010cde0 map[0:0 1:5 2:0]} 1}",
-		"{AddFriend {3 2} {0x1400010ce70 map[0:0 1:6 2:0]} 1}",
-		"{AddFriend {3 2} {0x140003923f0 map[0:1 1:7 2:0]} 1}",
-		"{AddRequest {3 1} {0x1400020a900 map[0:1 1:0 2:0]} 0}",
-		"{RemRequest {4 1} {0x1400010cd38 map[0:0 1:0 2:1]} 2}",
-		"{AddFriend {3 2} {0x140000b0c48 map[0:0 1:0 2:2]} 2}",
-		"{AddFriend {2 1} {0x140000b0c18 map[0:0 1:0 2:3]} 2}",
-		"{AddRequest {3 1} {0x140000b0b70 map[0:2 1:0 2:0]} 0}",
-		"{AddFriend {2 1} {0x140000b0bd0 map[0:3 1:0 2:0]} 0}",
-		"{AddFriend {2 1} {0x1400020a9d8 map[0:4 1:0 2:0]} 0}",
-		"{AddFriend {3 1} {0x140000b0cc0 map[0:5 1:0 2:0]} 0}",
-		"{AddFriend {2 1} {0x140003923d8 map[0:0 1:0 2:4]} 2}",
-		"{AddRequest {3 1} {0x1400010ceb8 map[0:0 1:0 2:5]} 2}",
-		"{AddRequest {3 1} {0x1400010cea0 map[0:0 1:0 2:6]} 2}",
-		"{RemFriend {3 1} {0x140003924c8 map[0:6 1:0 2:0]} 0}",
-		"{RemFriend {3 1} {0x140003924e0 map[0:0 1:0 2:7]} 2}",
-		"{RemRequest {4 1} {0x140003924f8 map[0:7 1:1 2:0]} 0}",
-	}
+	set1.Add(custom.OperationValue{Id1: 1, Id2: 2})
+	set2.Add(custom.OperationValue{Id1: 1, Id2: 2})
 
-	finalOperations := make([]communication.Operation, len(operations))
-	for i := 0; i < len(operations); i++ {
-		finalOperations[i], _ = parseMessage(operations[i])
-	}
-
-	//log.Println(finalOperations)
-
-	//sort operations
-	sortedOperations := make([]communication.Operation, len(operations))
-	copy(sortedOperations, finalOperations)
-	newop := Order(sortedOperations)
-
-	//log.Println(operations)
-	for _, op := range newop {
-		log.Println(op)
-	}
-	//log.Println(newop)
+	log.Println(set1.Equal(set2))
 
 }
 

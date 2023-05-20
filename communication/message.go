@@ -11,8 +11,8 @@ const (
 )
 
 type Message struct {
-	Type      int    // type of message
-	Operation        // operation submitted by user
+	Type      int // type of message
+	Operation     // operation submitted by user
 }
 
 // NewMessage creates a new message with the given value and version vector
@@ -42,5 +42,5 @@ func (e *Message) Equals(other *Message) bool {
 
 // creates new mutex for vector clock
 func (e *Message) NewMutex() {
-	e.Version.RWMutex = new(sync.RWMutex)
+	e.Operation.Version.RWMutex = new(sync.RWMutex)
 }

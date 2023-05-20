@@ -28,7 +28,9 @@ type VClock struct {
 // found false is returned
 func (vc VClock) FindTicks(id string) uint64 {
 	vc.Lock()
-	ticks, _ := vc.m[id]
+	//print the mutex reference
+
+	ticks := vc.m[id]
 	vc.Unlock()
 	return ticks
 }

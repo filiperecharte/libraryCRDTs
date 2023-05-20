@@ -153,24 +153,8 @@ func CompareEgameStates(s1 EgameState, s2 EgameState) bool {
 	}
 
 	//check if all enrolled are equal
-	enrolled1 := s1.Enrolled.ToSlice()
-	enrolled2 := s2.Enrolled.ToSlice()
-
-	if len(enrolled1) != len(enrolled2) {
+	if !s1.Enrolled.Equal(s2.Enrolled) {
 		return false
-	}
-
-	for _, e1 := range enrolled1 {
-		found := false
-		for _, e2 := range enrolled2 {
-			if e1 == e2 {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
 	}
 
 	return true

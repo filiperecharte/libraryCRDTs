@@ -81,7 +81,7 @@ func (r *EcroCRDT) NumOps() uint64 {
 
 func (r *EcroCRDT) after(op communication.Operation, operations []communication.Operation) bool {
 	// commutes and order_after only with concurrent operations
-	if r.commutes(op, operations) || r.causally_after(op, operations) || r.order_after(op, operations) {
+	if r.commutes(op, operations) || r.causally_after(op, operations) {
 		return true
 	}
 	return false

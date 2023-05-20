@@ -12,10 +12,10 @@ import (
 	"time"
 )
 
-func TestSocial(t *testing.T) {
+func TestAuction(t *testing.T) {
 
 	// Define property to test
-	property := func(addrequests []custom.OperationValue, addfriends []custom.OperationValue, remfriends []custom.OperationValue, remrequests []custom.OperationValue, numReplicas int) bool {
+	property := func(addusers []int, remusers []int, placebids []custom.Bid, close int, numReplicas int) bool {
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -26,44 +26,44 @@ func TestSocial(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = custom.NewSocialReplica(strconv.Itoa(i), channels, (numReplicas-1)*(len(addrequests)+len(addfriends)+len(remfriends)+len(remrequests)))
+			replicas[i] = custom.NewAuctionReplica(strconv.Itoa(i), channels, (numReplicas-1)*(len(addusers)+len(remusers)+len(placebids)+1))
 		}
 
 		// Start a goroutine for each replica
 		var wg sync.WaitGroup
 		for i := range replicas {
 			wg.Add(4)
-			go func(r *replica.Replica, adds []custom.OperationValue) {
+			go func(r *replica.Replica, adds []int) {
 				defer wg.Done()
 				// Perform random add operations
 				for j := 0; j < len(adds); j++ {
-					r.Prepare("AddFriend", adds[rand.Intn(len(adds))])
+					r.Prepare("AddUser", adds[rand.Intn(len(adds))])
 				}
-			}(replicas[i], addfriends)
+			}(replicas[i], addusers)
 
-			go func(r *replica.Replica, rems []custom.OperationValue) {
+			go func(r *replica.Replica, rems []int) {
 				defer wg.Done()
 				// Perform random rem operations
 				for j := 0; j < len(rems); j++ {
-					r.Prepare("RemFriend", rems[rand.Intn(len(rems))])
+					r.Prepare("RemUser", rems[rand.Intn(len(rems))])
 				}
-			}(replicas[i], remfriends)
+			}(replicas[i], remusers)
 
-			go func(r *replica.Replica, rems []custom.OperationValue) {
+			go func(r *replica.Replica) {
+				defer wg.Done()
+				// Perform random rem operations
+				//sleep
+				time.Sleep(time.Duration(close) * time.Millisecond)
+				r.Prepare("Close", nil)
+			}(replicas[i])
+
+			go func(r *replica.Replica, rems []custom.Bid) {
 				defer wg.Done()
 				// Perform random rem operations
 				for j := 0; j < len(rems); j++ {
-					r.Prepare("AddRequest", rems[rand.Intn(len(rems))])
+					r.Prepare("PlaceBid", rems[rand.Intn(len(rems))])
 				}
-			}(replicas[i], addrequests)
-
-			go func(r *replica.Replica, rems []custom.OperationValue) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(rems); j++ {
-					r.Prepare("RemRequest", rems[rand.Intn(len(rems))])
-				}
-			}(replicas[i], remrequests)
+			}(replicas[i], placebids)
 
 		}
 
@@ -74,7 +74,7 @@ func TestSocial(t *testing.T) {
 		for {
 			flag := false
 			for i := 0; i < numReplicas; i++ {
-				if replicas[i].Crdt.NumOps() == uint64(numReplicas*(len(addrequests)+len(addfriends)+len(remfriends)+len(remrequests))) {
+				if replicas[i].Crdt.NumOps() == uint64(numReplicas*(len(addusers)+len(remusers)+len(placebids)+1)) {
 					flag = true
 				} else {
 					flag = false
@@ -88,9 +88,9 @@ func TestSocial(t *testing.T) {
 
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
-			st := replicas[i].Crdt.Query().(custom.SocialState)
-			stt := replicas[0].Crdt.Query().(custom.SocialState)
-			if !custom.CompareSocialStates(st, stt) {
+			st := replicas[i].Crdt.Query().(custom.AuctionState)
+			stt := replicas[0].Crdt.Query().(custom.AuctionState)
+			if !custom.CompareAuctionStates(st, stt) {
 				for i := 0; i < numReplicas; i++ {
 					t.Error("Replica ", i, ": ", replicas[i].Crdt.Query())
 				}
@@ -99,32 +99,29 @@ func TestSocial(t *testing.T) {
 		}
 		for i := 0; i < numReplicas; i++ {
 			t.Log("Replica ", i, ": ", replicas[i].Crdt.Query())
-			// replicas[i].Quit()
-			// close(channels[strconv.Itoa(i)])
 		}
-
 		return true
 	}
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		addrequests := []custom.OperationValue{{Id1: 1, Id2: 2}, {Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}}
-		addfriends := []custom.OperationValue{{Id1: 2, Id2: 1}, {Id1: 3, Id2: 1}, {Id1: 3, Id2: 2}, {Id1: 1, Id2: 3}}
-		remfriends := []custom.OperationValue{{Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}}
-		remrequests := []custom.OperationValue{{Id1: 4, Id2: 1}}
+		addusers := []int{1, 2, 3, 4, 5}
+		remusers := []int{1, 4, 5}
+		placebids := []custom.Bid{{User: 3, Ammount: 1}, {User: 4, Ammount: 2}, {User: 5, Ammount: 3}}
+		close := 1
 
-		vals[0] = reflect.ValueOf(addrequests)
-		vals[1] = reflect.ValueOf(addfriends)
-		vals[2] = reflect.ValueOf(remfriends)
-		vals[3] = reflect.ValueOf(remrequests)
+		vals[0] = reflect.ValueOf(addusers)
+		vals[1] = reflect.ValueOf(remusers)
+		vals[2] = reflect.ValueOf(placebids)
+		vals[3] = reflect.ValueOf(close)
 		vals[4] = reflect.ValueOf(3)
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 200,
+		MaxCount: 80,
 		Values:   gen,
 	}
 

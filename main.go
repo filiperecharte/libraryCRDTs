@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"library/packages/communication"
-	"library/packages/datatypes/custom"
+	"library/packages/datatypes/ecro/custom"
 	"log"
 	"strconv"
 	"strings"

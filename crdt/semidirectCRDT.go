@@ -12,19 +12,22 @@ type SemidirectDataI interface {
 	Apply(state any, operations []communication.Operation) any
 
 	// Repairs unstable operations.
-	Repair(update communication.Operation, unstable_operations []communication.Operation) communication.Operation
+	Repair(op1 communication.Operation, op2 communication.Operation) communication.Operation
 }
 
 type SemidirectCRDT struct {
+	Id                  string
 	Data                SemidirectDataI           //data interface
 	Unstable_operations []communication.Operation //all aplied updates
 	Unstable_st         any
+	N_Ops               uint64
 }
 
 func (r *SemidirectCRDT) Effect(op communication.Operation) {
-	newUpdate := r.Data.Repair(op, r.Unstable_operations)
-	r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{newUpdate})
-	r.Unstable_operations = append(r.Unstable_operations, newUpdate)
+	newOp := r.repair(op)
+	r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{newOp})
+	r.Unstable_operations = append(r.Unstable_operations, op)
+	r.N_Ops++
 }
 
 func (r *SemidirectCRDT) Stabilize(op communication.Operation) {
@@ -38,4 +41,20 @@ func (r *SemidirectCRDT) Stabilize(op communication.Operation) {
 
 func (r *SemidirectCRDT) Query() any {
 	return r.Unstable_st
+}
+
+func (r *SemidirectCRDT) NumOps() uint64 {
+	return r.N_Ops
+}
+
+func (r *SemidirectCRDT) repair(op communication.Operation) communication.Operation {
+
+	//find operations that is concurrent with op
+	for _, o := range r.Unstable_operations {
+		if o.Version.Compare(op.Version) != communication.Ancestor {
+			op = r.Data.Repair(op, o)
+		}
+	}
+
+	return op
 }

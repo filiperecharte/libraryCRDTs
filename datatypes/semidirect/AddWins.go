@@ -35,24 +35,20 @@ func (a AddWins) Apply(state any, operations []communication.Operation) any {
 	return st
 }
 
-func (a AddWins) Order(op1 communication.Operation, op2 communication.Operation) bool {
+func (a AddWins) Repair(op1 communication.Operation, op2 communication.Operation) communication.Operation {
 	//order map of operations by type of operation, removes come before adds
 
-	return op1.Type == "Rem" && op2.Type == "Add"
-}
+	if op1.Type == "Rem" && op2.Type == "Add" {
+		return op2
+	}
 
-func (a AddWins) Commutes(op1 communication.Operation, op2 communication.Operation) bool {
-	return op1.Type == op2.Type
-}
-
-func (a AddWins) Equals(op1 communication.Operation, op2 communication.Operation) bool {
-	return op1.Value == op2.Value
+	return op1
 }
 
 // initialize counter replica
 func NewAddWinsReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
-	c := crdt.EcroCRDT{Id: id, Data: AddWins{id}, Stable_st: mapset.NewSet[any](), Unstable_operations: []communication.Operation{}, Unstable_st: mapset.NewSet[any](), N_Ops: 0}
+	c := crdt.SemidirectCRDT{Id: id, Data: AddWins{id}, Unstable_operations: []communication.Operation{}, Unstable_st: mapset.NewSet[any](), N_Ops: 0}
 
 	return replica.NewReplica(id, &c, channels, delay)
 }

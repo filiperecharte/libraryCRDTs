@@ -1,7 +1,7 @@
 package test
 
 import (
-	"library/packages/datatypes"
+	datatypes "library/packages/datatypes/semidirect"
 	"library/packages/replica"
 	"math/rand"
 	"reflect"
@@ -87,8 +87,8 @@ func TestAddWins(t *testing.T) {
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		adds := []int{1, 2, 3, 4, 5, 6}
-		rems := []int{1, 2, 3, 4, 5, 6}
+		adds := []int{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}
+		rems := []int{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}
 
 		vals[0] = reflect.ValueOf(adds)
 		vals[1] = reflect.ValueOf(rems)
@@ -98,7 +98,7 @@ func TestAddWins(t *testing.T) {
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 80,
+		MaxCount: 100,
 		Values:   gen,
 	}
 

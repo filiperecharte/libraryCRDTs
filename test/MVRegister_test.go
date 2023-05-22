@@ -1,7 +1,7 @@
 package test
 
 import (
-	"library/packages/datatypes"
+	"library/packages/datatypes/ecro"
 	"library/packages/replica"
 	"math/rand"
 	"reflect"

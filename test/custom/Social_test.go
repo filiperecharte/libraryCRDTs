@@ -109,9 +109,9 @@ func TestSocial(t *testing.T) {
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		addrequests := []custom.OperationValue{{Id1: 1, Id2: 2}, {Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}}
+		addrequests := []custom.OperationValue{{Id1: 1, Id2: 2}, {Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}, {Id1: 4, Id2: 1}}
 		addfriends := []custom.OperationValue{{Id1: 2, Id2: 1}, {Id1: 3, Id2: 1}, {Id1: 3, Id2: 2}, {Id1: 1, Id2: 3}}
-		remfriends := []custom.OperationValue{{Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}}
+		remfriends := []custom.OperationValue{{Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}, }
 		remrequests := []custom.OperationValue{{Id1: 4, Id2: 1}}
 
 		vals[0] = reflect.ValueOf(addrequests)

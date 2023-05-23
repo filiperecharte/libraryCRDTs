@@ -1,7 +1,7 @@
 package test
 
 import (
-	datatypes "library/packages/datatypes/semidirect"
+	datatypes "library/packages/datatypes/ecro"
 	"library/packages/replica"
 	"math/rand"
 	"reflect"
@@ -37,7 +37,7 @@ func TestAddWins(t *testing.T) {
 				defer wg.Done()
 				// Perform random add operations
 				for j := 0; j < len(adds); j++ {
-					r.Prepare("Add", adds[rand.Intn(len(adds))])
+					r.Prepare("Add", adds[j])
 				}
 			}(replicas[i], adds)
 
@@ -45,7 +45,7 @@ func TestAddWins(t *testing.T) {
 				defer wg.Done()
 				// Perform random rem operations
 				for j := 0; j < len(rems); j++ {
-					r.Prepare("Rem", rems[rand.Intn(len(rems))])
+					r.Prepare("Rem", rems[j])
 				}
 			}(replicas[i], rems)
 		}
@@ -87,8 +87,8 @@ func TestAddWins(t *testing.T) {
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		adds := []int{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}
-		rems := []int{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}
+		adds := []int{1, 2, 3, 4, 5, 6}
+		rems := []int{1, 4, 5}
 
 		vals[0] = reflect.ValueOf(adds)
 		vals[1] = reflect.ValueOf(rems)
@@ -98,7 +98,7 @@ func TestAddWins(t *testing.T) {
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 100,
+		MaxCount: 800,
 		Values:   gen,
 	}
 

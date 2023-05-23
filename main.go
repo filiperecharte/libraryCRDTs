@@ -3,12 +3,9 @@ package main
 import (
 	"fmt"
 	"library/packages/communication"
-	"library/packages/datatypes/ecro/custom"
 	"log"
 	"strconv"
 	"strings"
-
-	mapset "github.com/deckarep/golang-set/v2"
 )
 
 type OperationValue struct {
@@ -17,22 +14,11 @@ type OperationValue struct {
 }
 
 func Orde(op1 communication.Operation, op2 communication.Operation) bool {
-	//order map of operations by type of operation,
-	//remFriend < addFriend
-	//remRequest < addRequest
-	//addFriend < addRequest
-	// rmFriend and rmRequest are commutative
-
-	return op1.Type == "RemFriend" && op2.Type == "AddFriend" ||
-		op1.Type == "RemRequest" && op2.Type == "AddRequest" ||
-		op1.Type == "AddRequest" && op2.Type == "AddRequest"
+	return op1.Type == "Rem" && op2.Type == "Add"
 }
 
 func Commutes(op1 communication.Operation, op2 communication.Operation) bool {
-	return op1.Type == op2.Type ||
-		op1.Value.(OperationValue).Id1 != op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 == op2.Value.(OperationValue).Id2 ||
-		op1.Value.(OperationValue).Id1 == op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 != op2.Value.(OperationValue).Id2 ||
-		op1.Value.(OperationValue).Id1 != op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 != op2.Value.(OperationValue).Id2
+	return op1.Type == op2.Type || op1.Value != op2.Value
 }
 
 /*-------------------------------------*/
@@ -45,7 +31,9 @@ func Order(operations []communication.Operation) []communication.Operation {
 	for i := 0; i < len(sortedOperations); i++ {
 		for j := i + 1; j < len(sortedOperations); j++ {
 			//order by originID
-			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor || sortedOperations[i].OriginID > sortedOperations[j].OriginID {
+			if sortedOperations[i].OriginID > sortedOperations[j].OriginID {
+				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
+			} else if sortedOperations[i].OriginID == sortedOperations[j].OriginID && sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor {
 				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
 			}
 		}
@@ -56,44 +44,24 @@ func Order(operations []communication.Operation) []communication.Operation {
 		log.Println(op)
 	}
 
-	for i := 1; i < len(sortedOperations); i++ {
-		for j := i - 1; j >= 0; j-- {
-			log.Println("[COMPARING]", sortedOperations[i], sortedOperations[j])
-			if j == 0 {
-				if i == j+1 {
+	for i := len(sortedOperations) - 2; i >= 0; i-- {
+		for j := i + 1; j < len(sortedOperations); j++ {
+			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Descendant || (sortedOperations[i].Concurrent(sortedOperations[j]) && Orde(sortedOperations[i], sortedOperations[j]) && !Commutes(sortedOperations[i], sortedOperations[j])) {
+				if i+1 == j {
 					break
 				}
-
-				op := sortedOperations[i]
-
-				log.Println("[SWAP END]", sortedOperations[i], sortedOperations[j])
-
-				// Remove the element from the original position
+				op1 := sortedOperations[i]
 				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)
-
-				// Insert the element at the new position
-				sortedOperations = append([]communication.Operation{sortedOperations[0]}, append([]communication.Operation{op}, sortedOperations[1:]...)...)
-
+				sortedOperations = append(sortedOperations[:j-1], append([]communication.Operation{op1}, sortedOperations[j-1:]...)...)
 				break
 			}
-
-			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor ||
-				(sortedOperations[i].Concurrent(sortedOperations[j]) && Orde(sortedOperations[j], sortedOperations[i]) && !Commutes(sortedOperations[j], sortedOperations[i])) {
-				if i == j+1 {
-					log.Println("[BREAK]", sortedOperations[i], sortedOperations[j])
+			if j == len(sortedOperations)-1 {
+				if i+1 == j {
 					break
 				}
-
 				op1 := sortedOperations[i]
-
-				// Swap operations[i] and operations[j] if they meet the condition.
-				log.Println("[SWAP]", sortedOperations[i], sortedOperations[j])
-				// Remove the element from the original position
 				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)
-
-				// Insert the element at the new position
-				sortedOperations = append(sortedOperations[:j+1], append([]communication.Operation{op1}, sortedOperations[j+1:]...)...)
-
+				sortedOperations = append(sortedOperations, op1)
 				break
 			}
 		}
@@ -107,13 +75,58 @@ func Order(operations []communication.Operation) []communication.Operation {
 func main() {
 
 	//create two sets
-	set1 := mapset.NewSet[any]()
-	set2 := mapset.NewSet[any]()
+	ops := []string{
+		"{Rem 5 {0x14001738300 map[0:0 1:0 2:2]} 2}",
+		"{Rem 1 {0x14001739158 map[0:0 1:0 2:3]} 2}",
+		"{Add 2 {0x14001d79f20 map[0:0 1:1 2:0]} 1}",
+		"{Add 2 {0x14001d79fe0 map[0:0 1:2 2:0]} 1}",
+		"{Add 2 {0x14001739fe0 map[0:0 1:3 2:0]} 1}",
+		"{Add 3 {0x140021ac990 map[0:0 1:4 2:0]} 1}",
+		"{Add 5 {0x14001e44408 map[0:0 1:5 2:0]} 1}",
+		"{Rem 5 {0x140021acff0 map[0:1 1:6 2:0]} 1}",
+		"{Rem 5 {0x14001e447e0 map[0:1 1:7 2:0]} 1}",
+		"{Rem 5 {0x14001e447f8 map[0:1 1:8 2:0]} 1}",
+		"{Add 5 {0x14001d79cf8 map[0:2 1:0 2:0]} 0}",
+		"{Add 4 {0x14001d79e90 map[0:3 1:0 2:0]} 0}",
+		"{Add 3 {0x14001d79ea8 map[0:4 1:0 2:0]} 0}",
+		"{Add 2 {0x14001739788 map[0:5 1:0 2:0]} 0}",
+		"{Rem 1 {0x14001e44318 map[0:6 1:1 2:0]} 0}",
+		"{Rem 4 {0x14001e44330 map[0:7 1:1 2:0]} 0}",
+		"{Add 4 {0x140021ac9c0 map[0:1 1:0 2:4]} 2}",
+		"{Rem 1 {0x14001e44498 map[0:8 1:1 2:0]} 0}",
+		"{Add 1 {0x14001e44288 map[0:1 1:0 2:5]} 2}",
+		"{Add 3 {0x14001e44810 map[0:1 1:0 2:6]} 2}",
+		"{Add 3 {0x14001e447b0 map[0:1 1:0 2:7]} 2}",
+		"{Add 3 {0x14001e451b8 map[0:1 1:0 2:8]} 2}",
+		// "{Add 4 {0x140001281c8 map[0:1 1:0 2:4]}  2}",
+		// "{Rem 1 {0x140001281e0 map[0:8 1:1 2:0]}  0}",
+		// "{Add 1 {0x140001281f8 map[0:1 1:0 2:5]}  2}",
+		// "{Add 3 {0x14000128210 map[0:1 1:0 2:6]}  2}",
+		// "{Add 3 {0x14000128228 map[0:1 1:0 2:7]}  2}",
+		// "{Add 3 {0x14000128240 map[0:1 1:0 2:8]}  2}",
+		// "{Add 2 {0x14000128078 map[0:0 1:1 2:0]}  1}",
+		// "{Add 2 {0x14000128090 map[0:0 1:2 2:0]}  1}",
+		// "{Add 2 {0x140001280a8 map[0:0 1:3 2:0]}  1}",
+		// "{Add 3 {0x140001280c0 map[0:0 1:4 2:0]}  1}",
+		// "{Add 5 {0x140001280d8 map[0:0 1:5 2:0]}  1}",
+		// "{Rem 5 {0x140001280f0 map[0:1 1:6 2:0]}  1}",
+		// "{Rem 5 {0x14000128108 map[0:1 1:7 2:0]}  1}",
+		// "{Rem 5 {0x14000128120 map[0:1 1:8 2:0]}  1}",
+	}
 
-	set1.Add(custom.OperationValue{Id1: 1, Id2: 2})
-	set2.Add(custom.OperationValue{Id1: 1, Id2: 2})
+	operations := []communication.Operation{}
+	for _, op := range ops {
+		o, _ := parseMessage(op)
+		operations = append(operations, o)
+	}
 
-	log.Println(set1.Equal(set2))
+	//sort operations
+	operations = Order(operations)
+
+	fmt.Println("----SORTED OPERATIONS----")
+	for _, op := range operations {
+		fmt.Println(op)
+	}
 
 }
 
@@ -129,18 +142,14 @@ func parseMessage(input string) (communication.Operation, error) {
 	message.Type = input[startIndex:endIndex]
 
 	// Parse value
-	startIndex = endIndex + 2 // skip space and opening bracket
-	endIndex = strings.Index(input[startIndex:], "}") + startIndex
+	startIndex = endIndex + 1
+	endIndex = strings.Index(input[startIndex:], " ") + startIndex
 	if startIndex == -1 || endIndex == -1 {
 		return message, fmt.Errorf("could not find value in input string")
 	}
-	valueString := input[startIndex:endIndex]
-	valueString = strings.Replace(valueString, " ", ",", -1)
-	valueInts := strings.Split(valueString, ",")
 
-	id1, _ := strconv.Atoi(valueInts[0])
-	id2, _ := strconv.Atoi(valueInts[1])
-	message.Value = OperationValue{Id1: id1, Id2: id2}
+	valueString := input[startIndex:endIndex]
+	message.Value, _ = strconv.ParseInt(valueString, 10, 64)
 
 	// Parse version
 	startIndex = strings.Index(input, "[") + 1

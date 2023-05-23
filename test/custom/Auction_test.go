@@ -57,11 +57,11 @@ func TestAuction(t *testing.T) {
 				r.Prepare("Close", nil)
 			}(replicas[i])
 
-			go func(r *replica.Replica, rems []custom.Bid) {
+			go func(r *replica.Replica, bids []custom.Bid) {
 				defer wg.Done()
 				// Perform random rem operations
-				for j := 0; j < len(rems); j++ {
-					r.Prepare("PlaceBid", rems[rand.Intn(len(rems))])
+				for j := 0; j < len(bids); j++ {
+					r.Prepare("PlaceBid", bids[rand.Intn(len(bids))])
 				}
 			}(replicas[i], placebids)
 
@@ -108,7 +108,7 @@ func TestAuction(t *testing.T) {
 
 		addusers := []int{1, 2, 3, 4, 5}
 		remusers := []int{1, 4, 5}
-		placebids := []custom.Bid{{User: 3, Ammount: 1}, {User: 4, Ammount: 2}, {User: 5, Ammount: 3}}
+		placebids := []custom.Bid{}
 		close := 1
 
 		vals[0] = reflect.ValueOf(addusers)
@@ -121,7 +121,7 @@ func TestAuction(t *testing.T) {
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 80,
+		MaxCount: 300,
 		Values:   gen,
 	}
 

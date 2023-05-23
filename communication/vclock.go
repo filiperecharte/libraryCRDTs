@@ -114,10 +114,10 @@ func (vc VClock) Equal(vc1 VClock) bool {
 // Ancestor, Descendant, or Concurrent with the callee's clock.
 func (vc VClock) Compare(other VClock) Condition {
 	var otherIs Condition
-	vc.Lock()
-	other.Lock()
-	defer vc.Unlock()
-	defer other.Unlock()
+	// vc.Lock()
+	// other.Lock()
+	// defer vc.Unlock()
+	// defer other.Unlock()
 
 	// Preliminary qualification based on length
 	if len(vc.m) > len(other.m) {

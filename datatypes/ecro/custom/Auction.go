@@ -4,6 +4,7 @@ import (
 	"library/packages/communication"
 	"library/packages/crdt"
 	"library/packages/replica"
+	"sync"
 
 	mapset "github.com/deckarep/golang-set/v2"
 )
@@ -70,19 +71,20 @@ func (a Auction) Close(state AuctionState) AuctionState {
 }
 
 func (a Auction) Apply(state any, operations []communication.Operation) any {
+	st := CopyAuctionState(state.(AuctionState))
 	for _, op := range operations {
 		switch op.Type {
 		case "AddUser":
-			state = a.AddUser(state.(AuctionState), op)
+			state = a.AddUser(st, op)
 		case "RemUser":
-			state = a.RemUser(state.(AuctionState), op)
+			state = a.RemUser(st, op)
 		case "PlaceBid":
-			state = a.PlaceBid(state.(AuctionState), op)
+			state = a.PlaceBid(st, op)
 		case "Close":
-			state = a.Close(state.(AuctionState))
+			state = a.Close(st)
 		}
 	}
-	return state
+	return st
 }
 
 func (a Auction) Order(op1 communication.Operation, op2 communication.Operation) bool {
@@ -94,19 +96,6 @@ func (a Auction) Order(op1 communication.Operation, op2 communication.Operation)
 }
 
 func (a Auction) Commutes(op1 communication.Operation, op2 communication.Operation) bool {
-	if op1.Type == op2.Type ||
-		op1.Type == "AddUser" && op2.Type == "Close" ||
-		op1.Type == "RemUser" && op2.Type == "Close" {
-		return true
-	} else if bid, ok := op1.Value.(Bid); ok {
-		if op2.Value != bid.User {
-			return true
-		}
-	} else if bid, ok := op2.Value.(Bid); ok {
-		if op1.Value != bid.User {
-			return true
-		}
-	}
 
 	return false
 }
@@ -117,17 +106,29 @@ func NewAuctionReplica(id string, channels map[string]chan any, delay int) *repl
 	c := crdt.EcroCRDT{Id: id,
 		Data: Auction{id},
 		Stable_st: AuctionState{
-			Users: mapset.NewSet[any](),
-			Bids:  mapset.NewSet[Bid](),
+			Users:  mapset.NewSet[any](),
+			Bids:   mapset.NewSet[Bid](),
+			MaxBid: 0,
 		},
 		Unstable_operations: []communication.Operation{},
 		Unstable_st: AuctionState{
-			Users: mapset.NewSet[any](),
-			Bids:  mapset.NewSet[Bid](),
+			Users:  mapset.NewSet[any](),
+			Bids:   mapset.NewSet[Bid](),
+			MaxBid: 0,
 		},
+		StabilizeLock: new(sync.RWMutex),
 	}
 
 	return replica.NewReplica(id, &c, channels, delay)
+}
+
+// deep copy state of auction
+func CopyAuctionState(state AuctionState) AuctionState {
+	return AuctionState{
+		Users:  state.Users.Clone(),
+		Bids:   state.Bids.Clone(),
+		MaxBid: state.MaxBid,
+	}
 }
 
 // compares if two SocialState are equal for test reasons

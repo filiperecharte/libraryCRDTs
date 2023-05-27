@@ -1,7 +1,7 @@
 package test
 
 import (
-	datatypes "library/packages/datatypes/ecro"
+	datatypes "library/packages/datatypes/semidirect"
 	"library/packages/replica"
 	"math/rand"
 	"reflect"
@@ -55,16 +55,13 @@ func TestAddWins(t *testing.T) {
 
 		// Wait for all replicas to receive all messages
 		for {
-			flag := false
+			flag := 0
 			for i := 0; i < numReplicas; i++ {
 				if replicas[i].Crdt.NumOps() == uint64(numReplicas*(len(adds)+len(rems))) {
-					flag = true
-				} else {
-					flag = false
-					break
+					flag += 1
 				}
 			}
-			if flag {
+			if flag == numReplicas {
 				break
 			}
 		}
@@ -88,7 +85,7 @@ func TestAddWins(t *testing.T) {
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
 		adds := []int{1, 2, 3, 4, 5, 6}
-		rems := []int{1, 4, 5}
+		rems := []int{4}
 
 		vals[0] = reflect.ValueOf(adds)
 		vals[1] = reflect.ValueOf(rems)

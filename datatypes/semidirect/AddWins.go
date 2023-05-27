@@ -30,19 +30,32 @@ func (a AddWins) Apply(state any, operations []communication.Operation) any {
 			state = a.Add(st, op)
 		case "Rem":
 			state = a.Remove(st, op)
+		case "Nop": //has to commute with Rem
+			continue
 		}
 	}
 	return st
 }
 
 func (a AddWins) Repair(op1 communication.Operation, op2 communication.Operation) communication.Operation {
-	//order map of operations by type of operation, removes come before adds
+	//removes come before adds
+	//we have to classes of updates: add and rem, and adds have priority over rems
+	//the result of repair has to be an operation on the "lower" class, on this case commutative with rem
+	//the result of a repair in an AddWins is Nop
+	//we want rem -> add to always happen. rem -> add = add -> add |> rem, this equality is true if add |> rem = nop
 
-	if op1.Type == "Rem" && op2.Type == "Add" {
-		return op2
+	if op1.Type == "Add" && op2.Type == "Rem" && op1.Value == op2.Value {
+		return communication.Operation{Type: "Nop", Value: nil, Version: op2.Version}
 	}
 
-	return op1
+	return op2
+}
+
+func (a AddWins) ArbitrationConstraint(op communication.Operation) bool {
+	if op.Type == "Add" {
+		return true
+	}
+	return false
 }
 
 // initialize counter replica

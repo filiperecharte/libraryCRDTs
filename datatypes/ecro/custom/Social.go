@@ -8,7 +8,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
-type OperationValue struct {
+type SocialOpValue struct {
 	Id1 int //id of the user who is adding/removing
 	Id2 int //id of the user who is being added/removed
 }
@@ -24,7 +24,7 @@ type Social struct {
 
 func (s Social) AddFriend(state SocialState, elem any) SocialState {
 	elem = elem.(communication.Operation).Value
-	id1, id2 := elem.(OperationValue).Id1, elem.(OperationValue).Id2
+	id1, id2 := elem.(SocialOpValue).Id1, elem.(SocialOpValue).Id2
 	state.Friends[id1].Add(id2)
 	state.Friends[id2].Add(id1)
 	state.Requests[id1].Remove(id2)
@@ -33,14 +33,14 @@ func (s Social) AddFriend(state SocialState, elem any) SocialState {
 
 func (s Social) AddRequest(state SocialState, elem any) SocialState {
 	elem = elem.(communication.Operation).Value
-	id1, id2 := elem.(OperationValue).Id1, elem.(OperationValue).Id2
+	id1, id2 := elem.(SocialOpValue).Id1, elem.(SocialOpValue).Id2
 	state.Requests[id1].Add(id2)
 	return state
 }
 
 func (s Social) RemFriend(state SocialState, elem any) SocialState {
 	elem = elem.(communication.Operation).Value
-	id1, id2 := elem.(OperationValue).Id1, elem.(OperationValue).Id2
+	id1, id2 := elem.(SocialOpValue).Id1, elem.(SocialOpValue).Id2
 	state.Friends[id1].Remove(id2)
 	state.Friends[id2].Remove(id1)
 	return state
@@ -48,7 +48,7 @@ func (s Social) RemFriend(state SocialState, elem any) SocialState {
 
 func (s Social) RemRequest(state SocialState, elem any) SocialState {
 	elem = elem.(communication.Operation).Value
-	id1, id2 := elem.(OperationValue).Id1, elem.(OperationValue).Id2
+	id1, id2 := elem.(SocialOpValue).Id1, elem.(SocialOpValue).Id2
 	state.Requests[id1].Remove(id2)
 	return state
 }
@@ -83,8 +83,8 @@ func (a Social) Order(op1 communication.Operation, op2 communication.Operation) 
 
 func (a Social) Commutes(op1 communication.Operation, op2 communication.Operation) bool {
 	return op1.Type == op2.Type ||
-		op1.Value.(OperationValue).Id1 != op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 == op2.Value.(OperationValue).Id2 ||
-		op1.Value.(OperationValue).Id1 == op2.Value.(OperationValue).Id1 && op1.Value.(OperationValue).Id2 != op2.Value.(OperationValue).Id2
+		op1.Value.(SocialOpValue).Id1 != op2.Value.(SocialOpValue).Id1 && op1.Value.(SocialOpValue).Id2 == op2.Value.(SocialOpValue).Id2 ||
+		op1.Value.(SocialOpValue).Id1 == op2.Value.(SocialOpValue).Id1 && op1.Value.(SocialOpValue).Id2 != op2.Value.(SocialOpValue).Id2
 }
 
 // initialize counter replica

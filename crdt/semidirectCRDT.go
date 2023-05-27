@@ -11,6 +11,9 @@ type SemidirectDataI interface {
 	// All `operations` are unstable.
 	Apply(state any, operations []communication.Operation) any
 
+	// Updates of the bigger class
+	ArbitrationConstraint(op communication.Operation) bool
+
 	// Repairs unstable operations.
 	Repair(op1 communication.Operation, op2 communication.Operation) communication.Operation
 }
@@ -26,7 +29,10 @@ type SemidirectCRDT struct {
 func (r *SemidirectCRDT) Effect(op communication.Operation) {
 	newOp := r.repair(op)
 	r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{newOp})
-	r.Unstable_operations = append(r.Unstable_operations, op)
+
+	if r.Data.ArbitrationConstraint(newOp) {
+		r.Unstable_operations = append(r.Unstable_operations, op)
+	}
 	r.N_Ops++
 }
 
@@ -51,8 +57,8 @@ func (r *SemidirectCRDT) repair(op communication.Operation) communication.Operat
 
 	//find operations that is concurrent with op
 	for _, o := range r.Unstable_operations {
-		if o.Version.Compare(op.Version) != communication.Ancestor {
-			op = r.Data.Repair(op, o)
+		if o.Version.Compare(op.Version) == communication.Concurrent {
+			op = r.Data.Repair(o, op)
 		}
 	}
 

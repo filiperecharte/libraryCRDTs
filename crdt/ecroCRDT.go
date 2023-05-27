@@ -30,6 +30,8 @@ type EcroCRDT struct {
 	StabilizeLock *sync.RWMutex
 }
 
+
+
 func (r *EcroCRDT) Effect(op communication.Operation) {
 	r.StabilizeLock.Lock()
 	if r.after(op, r.Unstable_operations) {
@@ -91,16 +93,6 @@ func (r *EcroCRDT) after(op communication.Operation, operations []communication.
 func (r *EcroCRDT) commutes(op communication.Operation, operations []communication.Operation) bool {
 	for _, op2 := range operations {
 		if op.Concurrent(op2) && !r.Data.Commutes(op, op2) {
-			return false
-		}
-	}
-	return true
-}
-
-// it is safe to apply an update after all unstable operations when, if ordered, it would be the last operation
-func (r *EcroCRDT) order_after(op communication.Operation, operations []communication.Operation) bool {
-	for _, op2 := range operations {
-		if op.Concurrent(op2) && !r.Data.Order(op2, op) && !r.Data.Commutes(op2, op) {
 			return false
 		}
 	}

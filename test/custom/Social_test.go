@@ -15,7 +15,7 @@ import (
 func TestSocial(t *testing.T) {
 
 	// Define property to test
-	property := func(addrequests []custom.OperationValue, addfriends []custom.OperationValue, remfriends []custom.OperationValue, remrequests []custom.OperationValue, numReplicas int) bool {
+	property := func(addrequests []custom.SocialOpValue, addfriends []custom.SocialOpValue, remfriends []custom.SocialOpValue, remrequests []custom.SocialOpValue, numReplicas int) bool {
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -33,7 +33,7 @@ func TestSocial(t *testing.T) {
 		var wg sync.WaitGroup
 		for i := range replicas {
 			wg.Add(4)
-			go func(r *replica.Replica, adds []custom.OperationValue) {
+			go func(r *replica.Replica, adds []custom.SocialOpValue) {
 				defer wg.Done()
 				// Perform random add operations
 				for j := 0; j < len(adds); j++ {
@@ -41,7 +41,7 @@ func TestSocial(t *testing.T) {
 				}
 			}(replicas[i], addfriends)
 
-			go func(r *replica.Replica, rems []custom.OperationValue) {
+			go func(r *replica.Replica, rems []custom.SocialOpValue) {
 				defer wg.Done()
 				// Perform random rem operations
 				for j := 0; j < len(rems); j++ {
@@ -49,7 +49,7 @@ func TestSocial(t *testing.T) {
 				}
 			}(replicas[i], remfriends)
 
-			go func(r *replica.Replica, rems []custom.OperationValue) {
+			go func(r *replica.Replica, rems []custom.SocialOpValue) {
 				defer wg.Done()
 				// Perform random rem operations
 				for j := 0; j < len(rems); j++ {
@@ -57,7 +57,7 @@ func TestSocial(t *testing.T) {
 				}
 			}(replicas[i], addrequests)
 
-			go func(r *replica.Replica, rems []custom.OperationValue) {
+			go func(r *replica.Replica, rems []custom.SocialOpValue) {
 				defer wg.Done()
 				// Perform random rem operations
 				for j := 0; j < len(rems); j++ {
@@ -109,10 +109,10 @@ func TestSocial(t *testing.T) {
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		addrequests := []custom.OperationValue{{Id1: 1, Id2: 2}, {Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}, {Id1: 4, Id2: 1}}
-		addfriends := []custom.OperationValue{{Id1: 2, Id2: 1}, {Id1: 3, Id2: 1}, {Id1: 3, Id2: 2}, {Id1: 1, Id2: 3}}
-		remfriends := []custom.OperationValue{{Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}, }
-		remrequests := []custom.OperationValue{{Id1: 4, Id2: 1}}
+		addrequests := []custom.SocialOpValue{{Id1: 1, Id2: 2}, {Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}, {Id1: 4, Id2: 1}}
+		addfriends := []custom.SocialOpValue{{Id1: 2, Id2: 1}, {Id1: 3, Id2: 1}, {Id1: 3, Id2: 2}, {Id1: 1, Id2: 3}}
+		remfriends := []custom.SocialOpValue{{Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}, }
+		remrequests := []custom.SocialOpValue{{Id1: 4, Id2: 1}}
 
 		vals[0] = reflect.ValueOf(addrequests)
 		vals[1] = reflect.ValueOf(addfriends)

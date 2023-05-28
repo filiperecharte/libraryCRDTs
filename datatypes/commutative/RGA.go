@@ -12,7 +12,6 @@ type RGAOpValue struct {
 }
 
 // rga definition
-
 type Vertex struct {
 	Timestamp any
 	Value     any
@@ -42,9 +41,6 @@ func (r *RGA) Apply(state any, operations []communication.Operation) any {
 
 			st = newVertices
 		case "Rem":
-			if msg.Value.(RGAOpValue).V.Timestamp == nil {
-				return st
-			}
 			removeVertex := msg.Value.(RGAOpValue).V
 			// find index where removed vertex can be found and clear its content to tombstone it
 			index := indexOfVPtr(removeVertex, st)
@@ -58,9 +54,6 @@ func (r RGA) Stabilize(state any, op communication.Operation) any {
 	//if operation is remove, remove the vertex from the state
 	if op.Type == "Rem" {
 		st := state.([]Vertex)
-		if op.Value.(RGAOpValue).V.Timestamp == nil {
-			return st
-		}
 		removeVertex := op.Value.(RGAOpValue).V
 		index := indexOfVPtr(removeVertex, st)
 		st = append(st[:index], st[index+1:]...)
@@ -117,23 +110,6 @@ func shift(offset int, newVertex Vertex, vertices []Vertex) int {
 }
 
 // abstraction for test purposes
-
-type RGAOpIndex struct {
-	Index int
-	Value any
-}
-
-func GetPrevVertex(index int, vertices []Vertex) Vertex {
-	//index := indexWithTombstones(i, rga.Vertices)
-	prev := vertices[index]
-	return prev
-}
-
-func GetVertexRemove(index int, vertices []Vertex) Vertex {
-	//index := indexWithTombstones(i, rga.Vertices)
-	vertex := vertices[index]
-	return vertex
-}
 
 // check if two array of vertices are equal
 func RGAEqual(vertices1 []Vertex, vertices2 []Vertex) bool {

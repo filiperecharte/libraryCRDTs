@@ -1,7 +1,7 @@
 package test
 
 import (
-	datatypes "library/packages/datatypes/semidirect"
+	datatypes "library/packages/datatypes/ecro"
 	"library/packages/replica"
 	"math/rand"
 	"reflect"
@@ -15,7 +15,7 @@ import (
 func TestAddWins(t *testing.T) {
 
 	// Define property to test
-	property := func(adds []int, rems []int, numReplicas int) bool {
+	property := func(operations []int, numReplicas int, numOperations int) bool {
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -26,28 +26,33 @@ func TestAddWins(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewAddWinsReplica(strconv.Itoa(i), channels, (numReplicas-1)*(len(adds)+len(rems)))
+			replicas[i] = datatypes.NewAddWinsReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
 		var wg sync.WaitGroup
 		for i := range replicas {
-			wg.Add(2)
-			go func(r *replica.Replica, adds []int) {
+			wg.Add(1)
+			go func(r *replica.Replica, operations int) {
 				defer wg.Done()
 				// Perform random add operations
-				for j := 0; j < len(adds); j++ {
-					r.Prepare("Add", adds[j])
-				}
-			}(replicas[i], adds)
+				for j := 0; j < operations; j++ {
 
-			go func(r *replica.Replica, rems []int) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(rems); j++ {
-					r.Prepare("Rem", rems[j])
+					//generate random number
+					n := rand.Intn(10)
+
+					//choose randomly if it is an add or remove operation
+					OPType := "Add"
+					if rand.Intn(2) == 0 {
+						OPType = "Add"
+					} else {
+						OPType = "Rem"
+					}
+
+					r.Prepare(OPType, n)
 				}
-			}(replicas[i], rems)
+			}(replicas[i], operations[i])
+
 		}
 
 		// Wait for all goroutines to finish
@@ -57,7 +62,7 @@ func TestAddWins(t *testing.T) {
 		for {
 			flag := 0
 			for i := 0; i < numReplicas; i++ {
-				if replicas[i].Crdt.NumOps() == uint64(numReplicas*(len(adds)+len(rems))) {
+				if replicas[i].Crdt.NumOps() == uint64(numOperations) {
 					flag += 1
 				}
 			}
@@ -84,12 +89,14 @@ func TestAddWins(t *testing.T) {
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		adds := []int{1, 2, 3, 4, 5, 6}
-		rems := []int{4}
+		operations_rep0 := 10
+		operations_rep1 := 10
+		operations_rep2 := 10
 
-		vals[0] = reflect.ValueOf(adds)
-		vals[1] = reflect.ValueOf(rems)
-		vals[2] = reflect.ValueOf(3)
+		operations := []int{operations_rep0, operations_rep1, operations_rep2}
+		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
+		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
+		vals[2] = reflect.ValueOf(30)              //number of operations
 	}
 
 	// Define config for quick.Check

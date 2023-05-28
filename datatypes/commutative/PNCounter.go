@@ -13,9 +13,9 @@ func (r PNCounter) Apply(state any, operations []communication.Operation) any {
 	for _, op := range operations {
 		msgOP := op
 		switch msgOP.Type {
-		case "ADD":
+		case "Add":
 			st += msgOP.Value.(int)
-		case "REM":
+		case "Rem":
 			st -= msgOP.Value.(int)
 		}
 	}

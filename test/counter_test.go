@@ -1,7 +1,7 @@
 package test
 
 import (
-	"library/packages/datatypes"
+	"library/packages/datatypes/commutative"
 	"library/packages/replica"
 	"log"
 	"math/rand"

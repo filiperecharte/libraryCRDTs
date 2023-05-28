@@ -1,8 +1,7 @@
 package test
 
 import (
-	"library/packages/communication"
-	datatypes "library/packages/datatypes/ecro"
+	datatypes "library/packages/datatypes/commutative"
 	"library/packages/replica"
 	"log"
 	"math/rand"
@@ -47,24 +46,28 @@ func TestRGA(t *testing.T) {
 					//choose a predecessor or a vertex to remove randomly from query
 					q := r.Crdt.Query().([]datatypes.Vertex)
 					v := q[rand.Intn(len(q))]
-					//create a new operation
-					op := communication.Operation{}
+
 					//choose random leter to add
 					value := letters[rand.Intn(len(letters))]
 
 					//choose randomly if it is an add or remove operation
+					OPType := "Add"
 					if rand.Intn(2) == 0 {
-						op.Type = "Add"
+						OPType = "Add"
 					} else {
-						op.Type = "Rem"
+						OPType = "Rem"
+						if v.Timestamp == nil { //do not generate removes to the head of the list
+							j--
+							continue
+						}
 					}
 
-					op.Value = datatypes.RGAOpValue{
+					OPValue := datatypes.RGAOpValue{
 						Value: value,
 						V:     v,
 					}
 
-					r.Prepare(op.Type, op.Value)
+					r.Prepare(OPType, OPValue)
 				}
 
 			}(replicas[i], operations[i])
@@ -101,11 +104,11 @@ func TestRGA(t *testing.T) {
 		}
 		for i := 0; i < numReplicas; i++ {
 			q := replicas[i].Crdt.Query().([]datatypes.Vertex)
+			log.Println("Replica ", i)
 			for j := 0; j < len(q); j++ {
 				log.Println(q[j])
 			}
 		}
-
 
 		log.Println("TEST PASSED")
 		return true
@@ -118,7 +121,7 @@ func TestRGA(t *testing.T) {
 		operations_rep2 := 10
 
 		operations := []int{operations_rep0, operations_rep1, operations_rep2}
-		vals[0] = reflect.ValueOf(operations)      //operations
+		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
 		vals[2] = reflect.ValueOf(30)              //number of operations
 	}

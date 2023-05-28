@@ -11,18 +11,7 @@ type RGAOpValue struct {
 	Value any
 }
 
-// operations
-type Insert struct {
-	Prev  Vertex
-	Value any
-}
-
-type Remove struct {
-	V Vertex
-}
-
 // rga definition
-// the identifier must be any and come from the middleware
 
 type Vertex struct {
 	Timestamp any
@@ -31,7 +20,6 @@ type Vertex struct {
 }
 
 type RGA struct {
-	Vertices []Vertex
 }
 
 func (r *RGA) Apply(state any, operations []communication.Operation) any {
@@ -50,7 +38,7 @@ func (r *RGA) Apply(state any, operations []communication.Operation) any {
 			insertIdx := shift(predecessorIdx+1, newVertex, st)
 
 			newVertices := append(st[:insertIdx], append([]Vertex{newVertex}, st[insertIdx:]...)...)
-			r.Vertices = newVertices
+			
 			st = newVertices
 		case "Rem":
 			removeVertex := msg.Value.(RGAOpValue).V
@@ -62,12 +50,21 @@ func (r *RGA) Apply(state any, operations []communication.Operation) any {
 	return st
 }
 
+func (r RGA) Stabilize(state any, op communication.Operation) any {
+	//if operation is remove, remove the vertex from the state
+	if op.Type == "Rem" {
+		st := state.([]Vertex)
+		removeVertex := op.Value.(RGAOpValue).V
+		index := indexOfVPtr(removeVertex, st)
+		st = append(st[:index], st[index+1:]...)
+		return st
+	}
+	return state
+}
+
 // initialize RGA
 func NewRGAReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
-	r := crdt.CommutativeCRDT{Data: &RGA{
-		Vertices: []Vertex{
-			{nil, "", id},
-		},
+	r := crdt.CommutativeStableCRDT{Data: &RGA{
 	}, Stable_st: []Vertex{
 		{nil, "", id},
 	}}
@@ -101,22 +98,7 @@ func shift(offset int, newVertex Vertex, vertices []Vertex) int {
 	return shift(offset+1, newVertex, vertices)
 }
 
-// check if vertices have a vertex
-func HasVertex(vertices []Vertex, vertex Vertex) bool {
-	for _, v := range vertices {
-		if vertex.Timestamp == nil && v.Timestamp == nil {
-			return true
-		} else if v.Timestamp == nil {
-			continue
-		}
-		if v.Timestamp.(communication.VClock).Equal(vertex.Timestamp.(communication.VClock)) && v.Value == vertex.Value {
-			return true
-		}
-	}
-	return false
-}
-
-// abstraction for the RGA operations
+// abstraction for test purposes
 
 type RGAOpIndex struct {
 	Index int
@@ -131,7 +113,7 @@ func GetPrevVertex(index int, vertices []Vertex) Vertex {
 
 func GetVertexRemove(index int, vertices []Vertex) Vertex {
 	//index := indexWithTombstones(i, rga.Vertices)
-	vertex := vertices[index+1]
+	vertex := vertices[index]
 	return vertex
 }
 

@@ -102,30 +102,30 @@ func TestRGA(t *testing.T) {
 		operations_rep0 := []communication.Operation{
 			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "h", Index: 0}},
 			{Type: "Add", Value: datatypes.RGAOpIndex{Value: " ", Index: 1}},
-			// {Type: "Add", Value: datatypes.RGAOpIndex{Value: "p", Index: 2}},
-			// {Type: "Add", Value: datatypes.RGAOpIndex{Value: "c", Index: 3}},
-			// {Type: "Add", Value: datatypes.RGAOpIndex{Value: "d", Index: 4}},
-			//{Type: "Add", Value: datatypes.RGAOpValue{Value: "o", Index: 4}},
+			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "p", Index: 2}},
+			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "c", Index: 3}},
+			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "d", Index: 4}},
+			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "o", Index: 4}},
 		}
 		operations_rep1 := []communication.Operation{
 			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "e", Index: 0}},
 			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "e", Index: 1}},
-			// {Type: "Add", Value: datatypes.RGAOpIndex{Value: "d", Index: 2}},
-			// {Type: "Add", Value: datatypes.RGAOpIndex{Value: "a", Index: 3}},
-			// {Type: "Add", Value: datatypes.RGAOpIndex{Value: "d", Index: 4}},
+			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "d", Index: 2}},
+			{Type: "Rem", Value: datatypes.RGAOpIndex{Value: nil, Index: 3}},
+			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "d", Index: 4}},
 		}
 		operations_rep2 := []communication.Operation{
 			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "l", Index: 1}},
 			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "l", Index: 1}},
-			// {Type: "Add", Value: datatypes.RGAOpIndex{Value: "o", Index: 2}},
-			// {Type: "Add", Value: datatypes.RGAOpIndex{Value: "a", Index: 3}},
-			// {Type: "Add", Value: datatypes.RGAOpIndex{Value: "s", Index: 4}},
+			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "o", Index: 2}},
+			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "a", Index: 3}},
+			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "s", Index: 4}},
 		}
 
 		operations := [][]communication.Operation{operations_rep0, operations_rep1, operations_rep2}
 		vals[0] = reflect.ValueOf(operations)      //operations
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(6)               //number of operations
+		vals[2] = reflect.ValueOf(16)               //number of operations
 	}
 
 	// Define config for quick.Check

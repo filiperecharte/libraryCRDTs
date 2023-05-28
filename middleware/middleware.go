@@ -3,7 +3,6 @@ package middleware
 import (
 	"library/packages/communication"
 	"library/packages/utils"
-	"log"
 	"math/rand"
 	"sort"
 	"sync"
@@ -136,7 +135,7 @@ func (mw *Middleware) receive() {
 			m1 := <-mw.channels[mw.replica]
 
 			m, ok := m1.(communication.Message)
-			
+
 			if !ok {
 				continue
 			}
@@ -302,7 +301,6 @@ func (mw *Middleware) messageDelayerHandler(msg communication.Message) {
 
 	//if there are 5 or more messages in the queue, select one randomly to be delayed, otherwise continue receiving messages
 	if len(mw.MessagesDelay) >= 4 {
-		log.Println(len(mw.MessagesDelay), "messages in the queue")
 		if len(mw.MessagesDelay) == mw.Delay {
 			for i, md := range mw.MessagesDelay {
 				if !md.delayed {

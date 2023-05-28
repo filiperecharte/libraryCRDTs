@@ -11,9 +11,9 @@ type CommutativeDataI interface {
 }
 
 type CommutativeCRDT struct {
-	Data      CommutativeDataI
-	Stable_st any
-	N_Ops     uint64
+	Data        CommutativeDataI
+	Stable_st   any
+	N_Ops       uint64
 }
 
 // effect

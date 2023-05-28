@@ -20,6 +20,7 @@ type Vertex struct {
 }
 
 type RGA struct {
+	Id string
 }
 
 func (r *RGA) Apply(state any, operations []communication.Operation) any {
@@ -38,9 +39,12 @@ func (r *RGA) Apply(state any, operations []communication.Operation) any {
 			insertIdx := shift(predecessorIdx+1, newVertex, st)
 
 			newVertices := append(st[:insertIdx], append([]Vertex{newVertex}, st[insertIdx:]...)...)
-			
+
 			st = newVertices
 		case "Rem":
+			if msg.Value.(RGAOpValue).V.Timestamp == nil {
+				return st
+			}
 			removeVertex := msg.Value.(RGAOpValue).V
 			// find index where removed vertex can be found and clear its content to tombstone it
 			index := indexOfVPtr(removeVertex, st)
@@ -54,6 +58,9 @@ func (r RGA) Stabilize(state any, op communication.Operation) any {
 	//if operation is remove, remove the vertex from the state
 	if op.Type == "Rem" {
 		st := state.([]Vertex)
+		if op.Value.(RGAOpValue).V.Timestamp == nil {
+			return st
+		}
 		removeVertex := op.Value.(RGAOpValue).V
 		index := indexOfVPtr(removeVertex, st)
 		st = append(st[:index], st[index+1:]...)
@@ -62,10 +69,20 @@ func (r RGA) Stabilize(state any, op communication.Operation) any {
 	return state
 }
 
+func (r RGA) Query(state any) any {
+	//removes tombstones
+	noTombs := []Vertex{}
+	for i := 0; i < len(state.([]Vertex)); i++ {
+		if state.([]Vertex)[i].Value != nil {
+			noTombs = append(noTombs, state.([]Vertex)[i])
+		}
+	}
+	return noTombs
+}
+
 // initialize RGA
 func NewRGAReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
-	r := crdt.CommutativeStableCRDT{Data: &RGA{
-	}, Stable_st: []Vertex{
+	r := crdt.CommutativeStableCRDT{Data: &RGA{Id: id}, Stable_st: []Vertex{
 		{nil, "", id},
 	}}
 
@@ -74,7 +91,7 @@ func NewRGAReplica(id string, channels map[string]chan any, delay int) *replica.
 
 func indexOfVPtr(vertex Vertex, vertices []Vertex) int {
 	for i, v := range vertices {
-		if vertex.Timestamp == nil && v.Timestamp == nil {
+		if vertex.Timestamp == nil && v.Timestamp == nil || vertex.Timestamp == nil {
 			return 0
 		} else if v.Timestamp == nil {
 			continue
@@ -90,9 +107,10 @@ func shift(offset int, newVertex Vertex, vertices []Vertex) int {
 	if offset >= len(vertices) {
 		return offset
 	}
-	next := vertices[offset]
-	concurrent := newVertex.Timestamp.(communication.VClock).Compare(next.Timestamp.(communication.VClock)) == communication.Concurrent
-	if !concurrent || (concurrent && next.OriginID < newVertex.OriginID) {
+
+	at := vertices[offset]
+
+	if at.OriginID < newVertex.OriginID || at.OriginID == newVertex.OriginID && at.Timestamp.(communication.VClock).Sum() < newVertex.Timestamp.(communication.VClock).Sum() {
 		return offset
 	}
 	return shift(offset+1, newVertex, vertices)

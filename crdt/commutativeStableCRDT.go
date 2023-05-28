@@ -10,6 +10,9 @@ type CommutativeStableDataI interface {
 	Apply(state any, operations []communication.Operation) any
 
 	Stabilize(state any, op communication.Operation) any
+
+	// Query returns the current state of the CRDT
+	Query(state any) any
 }
 
 type CommutativeStableCRDT struct {
@@ -29,7 +32,7 @@ func (c *CommutativeStableCRDT) Stabilize(op communication.Operation) {
 }
 
 func (c *CommutativeStableCRDT) Query() any {
-	return c.Stable_st
+	return c.Data.Query(c.Stable_st)
 }
 
 func (c *CommutativeStableCRDT) NumOps() uint64 {

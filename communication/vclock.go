@@ -202,3 +202,14 @@ func (vc VClock) Subtract(vc1 VClock) (subVC VClock) {
 	vc.Unlock()
 	return subVC
 }
+
+//Sums all of the ticks of a vector clock
+func (vc VClock) Sum() uint64 {
+	vc.Lock()
+	var sum uint64
+	for _, value := range vc.m {
+		sum += value
+	}
+	vc.Unlock()
+	return sum
+}

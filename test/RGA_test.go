@@ -14,10 +14,13 @@ import (
 	"time"
 )
 
+// variable with the alphabet to generate random strings
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
 func TestRGA(t *testing.T) {
 
 	// Define property to test
-	property := func(operations [][]communication.Operation, numReplicas int, numOperations int) bool {
+	property := func(operations []int, numReplicas int, numOperations int) bool {
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -28,7 +31,7 @@ func TestRGA(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-len(operations[i]))
+			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
@@ -36,29 +39,32 @@ func TestRGA(t *testing.T) {
 		for i := range replicas {
 			wg.Add(1)
 
-			go func(r *replica.Replica, operations []communication.Operation) {
+			go func(r *replica.Replica, operations int) {
 				defer wg.Done()
 				// Perform random number of add operations with random delays
 
-				for j := 0; j < len(operations); j++ {
-					for len(r.Crdt.Query().([]datatypes.Vertex)) <= operations[j].Value.(datatypes.RGAOpIndex).Index {
-						log.Println("Waiting for previous operation to be on the state")
-						time.Sleep(1 * time.Second)
-					}
-					v := datatypes.Vertex{}
-					if operations[j].Type == "Add" {
-						v = datatypes.GetPrevVertex(operations[j].Value.(datatypes.RGAOpIndex).Index, r.Crdt.Query().([]datatypes.Vertex))
-					} else if operations[j].Type == "Rem" {
-						v = datatypes.GetVertexRemove(operations[j].Value.(datatypes.RGAOpIndex).Index, r.Crdt.Query().([]datatypes.Vertex))
+				for j := 0; j < operations; j++ {
+					//choose a predecessor or a vertex to remove randomly from query
+					q := r.Crdt.Query().([]datatypes.Vertex)
+					v := q[rand.Intn(len(q))]
+					//create a new operation
+					op := communication.Operation{}
+					//choose random leter to add
+					value := letters[rand.Intn(len(letters))]
+
+					//choose randomly if it is an add or remove operation
+					if rand.Intn(2) == 0 {
+						op.Type = "Add"
+					} else {
+						op.Type = "Rem"
 					}
 
-					// Wait until previous operation is on the state for testing purposes, in a normal execution the operation would have to be there
-					operations[j].Value = datatypes.RGAOpValue{
-						Value: operations[j].Value.(datatypes.RGAOpIndex).Value,
+					op.Value = datatypes.RGAOpValue{
+						Value: value,
 						V:     v,
 					}
 
-					r.Prepare(operations[j].Type, operations[j].Value)
+					r.Prepare(op.Type, op.Value)
 				}
 
 			}(replicas[i], operations[i])
@@ -80,57 +86,47 @@ func TestRGA(t *testing.T) {
 			}
 		}
 
-		for i := 0; i < numReplicas; i++ {
-			log.Println(replicas[i].Crdt.Query().([]datatypes.Vertex))
-		}
-
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
 			if !datatypes.RGAEqual(replicas[i].Crdt.Query().([]datatypes.Vertex), replicas[0].Crdt.Query().([]datatypes.Vertex)) {
 				for i := 0; i < numReplicas; i++ {
-					t.Error("Replica ", i, ": ", replicas[i].Crdt.Query())
+					t.Error("Replica ", i)
+					q := replicas[i].Crdt.Query().([]datatypes.Vertex)
+					for j := 0; j < len(q); j++ {
+						log.Println(q[j])
+					}
 				}
 				return false
 			}
 		}
+		for i := 0; i < numReplicas; i++ {
+			q := replicas[i].Crdt.Query().([]datatypes.Vertex)
+			for j := 0; j < len(q); j++ {
+				log.Println(q[j])
+			}
+		}
 
+
+		log.Println("TEST PASSED")
 		return true
 	}
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		operations_rep0 := []communication.Operation{
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "h", Index: 0}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: " ", Index: 1}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "p", Index: 2}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "c", Index: 3}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "d", Index: 4}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "o", Index: 4}},
-		}
-		operations_rep1 := []communication.Operation{
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "e", Index: 0}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "e", Index: 1}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "d", Index: 2}},
-			{Type: "Rem", Value: datatypes.RGAOpIndex{Value: nil, Index: 3}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "d", Index: 4}},
-		}
-		operations_rep2 := []communication.Operation{
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "l", Index: 1}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "l", Index: 1}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "o", Index: 2}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "a", Index: 3}},
-			{Type: "Add", Value: datatypes.RGAOpIndex{Value: "s", Index: 4}},
-		}
+		operations_rep0 := 10
+		operations_rep1 := 10
+		operations_rep2 := 10
 
-		operations := [][]communication.Operation{operations_rep0, operations_rep1, operations_rep2}
+		operations := []int{operations_rep0, operations_rep1, operations_rep2}
 		vals[0] = reflect.ValueOf(operations)      //operations
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(16)               //number of operations
+		vals[2] = reflect.ValueOf(30)              //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
-		MaxCount: 1,
+		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
+		MaxCount: 100,
 		Values:   gen,
 	}
 

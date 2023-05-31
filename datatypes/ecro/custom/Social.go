@@ -90,20 +90,12 @@ func (a Social) Commutes(op1 communication.Operation, op2 communication.Operatio
 // initialize counter replica
 func NewSocialReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
-	c := crdt.EcroCRDT{Id: id,
-		Data: Social{id},
-		Stable_st: SocialState{
-			Friends:  [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
-			Requests: [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
-		},
-		Unstable_operations: []communication.Operation{},
-		Unstable_st: SocialState{
-			Friends:  [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
-			Requests: [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
-		},
-	}
+	c := crdt.NewEcroCRDT(id, SocialState{
+		Friends:  [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
+		Requests: [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
+	}, Social{id})
 
-	return replica.NewReplica(id, &c, channels, delay)
+	return replica.NewReplica(id, c, channels, delay)
 }
 
 // compares if two SocialState are equal for test reasons

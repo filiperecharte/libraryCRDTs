@@ -128,22 +128,13 @@ func (e Egame) Commutes(op1 communication.Operation, op2 communication.Operation
 // initialize counter replica
 func NewEgameReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
-	c := crdt.EcroCRDT{Id: id,
-		Data: Egame{id},
-		Stable_st: EgameState{
-			Tournaments: mapset.NewSet[any](),
-			Players:     mapset.NewSet[any](),
-			Enrolled:    mapset.NewSet[Enroll](),
-		},
-		Unstable_operations: []communication.Operation{},
-		Unstable_st: EgameState{
-			Tournaments: mapset.NewSet[any](),
-			Players:     mapset.NewSet[any](),
-			Enrolled:    mapset.NewSet[Enroll](),
-		},
-	}
+	c := crdt.NewEcroCRDT(id, EgameState{
+		Tournaments: mapset.NewSet[any](),
+		Players:     mapset.NewSet[any](),
+		Enrolled:    mapset.NewSet[Enroll](),
+	}, Egame{id})
 
-	return replica.NewReplica(id, &c, channels, delay)
+	return replica.NewReplica(id, c, channels, delay)
 }
 
 // compares if two SocialState are equal for test reasons

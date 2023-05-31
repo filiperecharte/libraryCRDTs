@@ -4,7 +4,6 @@ import (
 	"library/packages/communication"
 	"library/packages/crdt"
 	"library/packages/replica"
-	"sync"
 
 	mapset "github.com/deckarep/golang-set/v2"
 )
@@ -103,23 +102,13 @@ func (a Auction) Commutes(op1 communication.Operation, op2 communication.Operati
 // initialize counter replica
 func NewAuctionReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
-	c := crdt.EcroCRDT{Id: id,
-		Data: Auction{id},
-		Stable_st: AuctionState{
-			Users:  mapset.NewSet[any](),
-			Bids:   mapset.NewSet[Bid](),
-			MaxBid: 0,
-		},
-		Unstable_operations: []communication.Operation{},
-		Unstable_st: AuctionState{
-			Users:  mapset.NewSet[any](),
-			Bids:   mapset.NewSet[Bid](),
-			MaxBid: 0,
-		},
-		StabilizeLock: new(sync.RWMutex),
-	}
+	c := crdt.NewEcroCRDT(id, AuctionState{
+		Users:  mapset.NewSet[any](),
+		Bids:   mapset.NewSet[Bid](),
+		MaxBid: 0,
+	}, Auction{id})
 
-	return replica.NewReplica(id, &c, channels, delay)
+	return replica.NewReplica(id, c, channels, delay)
 }
 
 // deep copy state of auction

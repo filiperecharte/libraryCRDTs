@@ -67,7 +67,16 @@ func (r *EcroCRDT) Effect(op communication.Operation) {
 
 func (r *EcroCRDT) Stabilize(op communication.Operation) {
 	r.StabilizeLock.Lock()
+	defer r.StabilizeLock.Unlock()
 	//remove vertex of the operation and all its edges
+	r.Stable_operations = append(r.Stable_operations, op)
+	t := r.topologicalSort()
+	io := indexOf(t, op)
+
+	if !r.prefixStable(t, io) {
+		return
+	}
+
 	r.Unstable_operations.RemoveVertex(opHash(op))
 
 	//remove all edges that have the operation as target or source
@@ -80,9 +89,9 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 		}
 	}
 
-	r.Stable_st = r.Data.Apply(r.Stable_st, []communication.Operation{op})
-	r.Unstable_st = r.Data.Apply(r.Stable_st, r.topologicalSort())
-	r.StabilizeLock.Unlock()
+	r.Stable_st = r.Data.Apply(r.Stable_st, t[:io+1])
+	r.Unstable_st = r.Data.Apply(r.Stable_st, t[io+1:])
+	r.Stable_operations = append(r.Stable_operations, t[io+1:]...)
 }
 
 func (r *EcroCRDT) Query() any {
@@ -201,4 +210,34 @@ func (r EcroCRDT) topologicalSort() []communication.Operation {
 	}
 
 	return order
+}
+
+// gets index of operation in array
+func indexOf(operations []communication.Operation, op communication.Operation) int {
+	for i, o := range operations {
+		if op.Equals(o) {
+			return i
+		}
+	}
+	return -1
+}
+
+// check if prefix of the operations is stable (all operations of the prefix are in stable_operations)
+func (r EcroCRDT) prefixStable(operations []communication.Operation, index int) bool {
+	for _, o := range operations[:index+1] {
+		if !contains(r.Stable_operations, o) {
+			return false
+		}
+	}
+	return true
+}
+
+// check if array contains operation
+func contains(operations []communication.Operation, op communication.Operation) bool {
+	for _, o := range operations {
+		if op.Equals(o) {
+			return true
+		}
+	}
+	return false
 }

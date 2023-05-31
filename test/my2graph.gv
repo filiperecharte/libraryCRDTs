@@ -1,44 +1,454 @@
 strict digraph {
 
 
-	"21" [ label="21 Add 5 {0:0, 1:0, 2:1}",  weight=0 ];
+	"25" [ label="25 Rem 0 {0:0, 1:0, 2:5}",  weight=0 ];
 
-	"21" -> "22" [ id="2122", label="ao",  weight=0 ];
+	"25" -> "214" [ id="25214", label="hb",  weight=0 ];
 
-	"21" -> "23" [ id="2123", label="ao",  weight=0 ];
+	"25" -> "17" [ id="2517", label="ao",  weight=0 ];
 
-	"23" [ label="23 Rem 1 {0:0, 1:0, 2:3}",  weight=0 ];
+	"25" -> "29" [ id="2529", label="hb",  weight=0 ];
 
-	"22" [ label="22 Add 1 {0:0, 1:0, 2:2}",  weight=0 ];
+	"25" -> "213" [ id="25213", label="hb",  weight=0 ];
 
-	"22" -> "23" [ id="2223", label="ao",  weight=0 ];
+	"25" -> "04" [ id="2504", label="ao",  weight=0 ];
 
-	"11" [ label="11 Add 5 {0:0, 1:1, 2:0}",  weight=0 ];
+	"25" -> "010" [ id="25010", label="ao",  weight=0 ];
 
-	"11" -> "13" [ id="1113", label="ao",  weight=0 ];
+	"25" -> "217" [ id="25217", label="hb",  weight=0 ];
 
-	"11" -> "12" [ id="1112", label="ao",  weight=0 ];
+	"25" -> "05" [ id="2505", label="ao",  weight=0 ];
 
-	"13" [ label="13 Rem 3 {0:0, 1:3, 2:0}",  weight=0 ];
+	"25" -> "210" [ id="25210", label="hb",  weight=0 ];
 
-	"13" -> "02" [ id="1302", label="ao",  weight=0 ];
+	"18" [ label="18 Rem 8 {0:0, 1:8, 2:0}",  weight=0 ];
 
-	"01" [ label="01 Add 7 {0:1, 1:0, 2:0}",  weight=0 ];
+	"18" -> "21" [ id="1821", label="ao",  weight=0 ];
 
-	"01" -> "02" [ id="0102", label="ao",  weight=0 ];
+	"18" -> "19" [ id="1819", label="hb",  weight=0 ];
 
-	"01" -> "03" [ id="0103", label="ao",  weight=0 ];
+	"18" -> "110" [ id="18110", label="hb",  weight=0 ];
 
-	"12" [ label="12 Add 7 {0:0, 1:2, 2:0}",  weight=0 ];
+	"110" [ label="110 Rem 8 {0:0, 1:10, 2:0}",  weight=0 ];
 
-	"12" -> "13" [ id="1213", label="ao",  weight=0 ];
+	"110" -> "21" [ id="11021", label="ao",  weight=0 ];
 
-	"02" [ label="02 Add 3 {0:2, 1:0, 2:0}",  weight=0 ];
+	"29" [ label="29 Rem 7 {0:2, 1:1, 2:6}",  weight=0 ];
 
-	"02" -> "03" [ id="0203", label="ao",  weight=0 ];
+	"29" -> "013" [ id="29013", label="ao",  weight=0 ];
 
-	"03" [ label="03 Rem 7 {0:3, 1:0, 2:0}",  weight=0 ];
+	"29" -> "210" [ id="29210", label="hb",  weight=0 ];
 
-	"03" -> "12" [ id="0312", label="ao",  weight=0 ];
+	"29" -> "213" [ id="29213", label="hb",  weight=0 ];
+
+	"29" -> "214" [ id="29214", label="hb",  weight=0 ];
+
+	"29" -> "217" [ id="29217", label="hb",  weight=0 ];
+
+	"15" [ label="15 Rem 0 {0:0, 1:5, 2:0}",  weight=0 ];
+
+	"15" -> "217" [ id="15217", label="hb",  weight=0 ];
+
+	"15" -> "05" [ id="1505", label="ao",  weight=0 ];
+
+	"15" -> "23" [ id="1523", label="ao",  weight=0 ];
+
+	"15" -> "16" [ id="1516", label="hb",  weight=0 ];
+
+	"15" -> "19" [ id="1519", label="hb",  weight=0 ];
+
+	"15" -> "18" [ id="1518", label="hb",  weight=0 ];
+
+	"15" -> "04" [ id="1504", label="ao",  weight=0 ];
+
+	"15" -> "17" [ id="1517", label="hb",  weight=0 ];
+
+	"15" -> "010" [ id="15010", label="ao",  weight=0 ];
+
+	"15" -> "110" [ id="15110", label="hb",  weight=0 ];
+
+	"06" [ label="06 Add 2 {0:6, 1:0, 2:0}",  weight=0 ];
+
+	"06" -> "013" [ id="06013", label="hb",  weight=0 ];
+
+	"06" -> "014" [ id="06014", label="hb",  weight=0 ];
+
+	"06" -> "09" [ id="0609", label="hb",  weight=0 ];
+
+	"06" -> "010" [ id="06010", label="hb",  weight=0 ];
+
+	"22" [ label="22 Add 5 {0:0, 1:0, 2:2}",  weight=0 ];
+
+	"22" -> "23" [ id="2223", label="hb",  weight=0 ];
+
+	"22" -> "24" [ id="2224", label="hb",  weight=0 ];
+
+	"22" -> "25" [ id="2225", label="hb",  weight=0 ];
+
+	"22" -> "29" [ id="2229", label="hb",  weight=0 ];
+
+	"22" -> "210" [ id="22210", label="hb",  weight=0 ];
+
+	"22" -> "213" [ id="22213", label="hb",  weight=0 ];
+
+	"22" -> "214" [ id="22214", label="hb",  weight=0 ];
+
+	"22" -> "217" [ id="22217", label="hb",  weight=0 ];
+
+	"12" [ label="12 Add 9 {0:0, 1:2, 2:0}",  weight=0 ];
+
+	"12" -> "213" [ id="12213", label="hb",  weight=0 ];
+
+	"12" -> "15" [ id="1215", label="hb",  weight=0 ];
+
+	"12" -> "09" [ id="1209", label="hb",  weight=0 ];
+
+	"12" -> "010" [ id="12010", label="hb",  weight=0 ];
+
+	"12" -> "214" [ id="12214", label="hb",  weight=0 ];
+
+	"12" -> "16" [ id="1216", label="hb",  weight=0 ];
+
+	"12" -> "013" [ id="12013", label="hb",  weight=0 ];
+
+	"12" -> "14" [ id="1214", label="hb",  weight=0 ];
+
+	"12" -> "110" [ id="12110", label="hb",  weight=0 ];
+
+	"12" -> "18" [ id="1218", label="hb",  weight=0 ];
+
+	"12" -> "19" [ id="1219", label="hb",  weight=0 ];
+
+	"12" -> "014" [ id="12014", label="hb",  weight=0 ];
+
+	"12" -> "13" [ id="1213", label="hb",  weight=0 ];
+
+	"12" -> "217" [ id="12217", label="hb",  weight=0 ];
+
+	"12" -> "17" [ id="1217", label="hb",  weight=0 ];
+
+	"013" [ label="013 Add 7 {0:9, 1:3, 2:1}",  weight=0 ];
+
+	"013" -> "014" [ id="013014", label="hb",  weight=0 ];
+
+	"214" [ label="214 Rem 4 {0:2, 1:3, 2:9}",  weight=0 ];
+
+	"214" -> "217" [ id="214217", label="hb",  weight=0 ];
+
+	"19" [ label="19 Rem 7 {0:0, 1:9, 2:0}",  weight=0 ];
+
+	"19" -> "110" [ id="19110", label="hb",  weight=0 ];
+
+	"19" -> "013" [ id="19013", label="ao",  weight=0 ];
+
+	"02" [ label="02 Rem 0 {0:2, 1:0, 2:0}",  weight=0 ];
+
+	"02" -> "09" [ id="0209", label="hb",  weight=0 ];
+
+	"02" -> "217" [ id="02217", label="hb",  weight=0 ];
+
+	"02" -> "29" [ id="0229", label="hb",  weight=0 ];
+
+	"02" -> "04" [ id="0204", label="hb",  weight=0 ];
+
+	"02" -> "214" [ id="02214", label="hb",  weight=0 ];
+
+	"02" -> "06" [ id="0206", label="hb",  weight=0 ];
+
+	"02" -> "210" [ id="02210", label="hb",  weight=0 ];
+
+	"02" -> "013" [ id="02013", label="hb",  weight=0 ];
+
+	"02" -> "213" [ id="02213", label="hb",  weight=0 ];
+
+	"02" -> "17" [ id="0217", label="ao",  weight=0 ];
+
+	"02" -> "03" [ id="0203", label="hb",  weight=0 ];
+
+	"02" -> "010" [ id="02010", label="hb",  weight=0 ];
+
+	"02" -> "05" [ id="0205", label="hb",  weight=0 ];
+
+	"02" -> "014" [ id="02014", label="hb",  weight=0 ];
+
+	"02" -> "23" [ id="0223", label="ao",  weight=0 ];
+
+	"213" [ label="213 Rem 8 {0:2, 1:3, 2:8}",  weight=0 ];
+
+	"213" -> "214" [ id="213214", label="hb",  weight=0 ];
+
+	"213" -> "217" [ id="213217", label="hb",  weight=0 ];
+
+	"213" -> "16" [ id="21316", label="ao",  weight=0 ];
+
+	"09" [ label="09 Add 3 {0:7, 1:2, 2:0}",  weight=0 ];
+
+	"09" -> "010" [ id="09010", label="hb",  weight=0 ];
+
+	"09" -> "013" [ id="09013", label="hb",  weight=0 ];
+
+	"09" -> "014" [ id="09014", label="hb",  weight=0 ];
+
+	"01" [ label="01 Rem 9 {0:1, 1:0, 2:0}",  weight=0 ];
+
+	"01" -> "213" [ id="01213", label="hb",  weight=0 ];
+
+	"01" -> "05" [ id="0105", label="hb",  weight=0 ];
+
+	"01" -> "12" [ id="0112", label="ao",  weight=0 ];
+
+	"01" -> "214" [ id="01214", label="hb",  weight=0 ];
+
+	"01" -> "210" [ id="01210", label="hb",  weight=0 ];
+
+	"01" -> "010" [ id="01010", label="hb",  weight=0 ];
+
+	"01" -> "02" [ id="0102", label="hb",  weight=0 ];
+
+	"01" -> "29" [ id="0129", label="hb",  weight=0 ];
+
+	"01" -> "03" [ id="0103", label="hb",  weight=0 ];
+
+	"01" -> "09" [ id="0109", label="hb",  weight=0 ];
+
+	"01" -> "013" [ id="01013", label="hb",  weight=0 ];
+
+	"01" -> "04" [ id="0104", label="hb",  weight=0 ];
+
+	"01" -> "217" [ id="01217", label="hb",  weight=0 ];
+
+	"01" -> "06" [ id="0106", label="hb",  weight=0 ];
+
+	"01" -> "014" [ id="01014", label="hb",  weight=0 ];
+
+	"014" [ label="014 Add 5 {0:10, 1:3, 2:1}",  weight=0 ];
+
+	"24" [ label="24 Add 1 {0:0, 1:0, 2:4}",  weight=0 ];
+
+	"24" -> "29" [ id="2429", label="hb",  weight=0 ];
+
+	"24" -> "210" [ id="24210", label="hb",  weight=0 ];
+
+	"24" -> "213" [ id="24213", label="hb",  weight=0 ];
+
+	"24" -> "214" [ id="24214", label="hb",  weight=0 ];
+
+	"24" -> "217" [ id="24217", label="hb",  weight=0 ];
+
+	"24" -> "25" [ id="2425", label="hb",  weight=0 ];
+
+	"217" [ label="217 Rem 2 {0:2, 1:5, 2:10}",  weight=0 ];
+
+	"217" -> "06" [ id="21706", label="ao",  weight=0 ];
+
+	"010" [ label="010 Add 0 {0:8, 1:2, 2:0}",  weight=0 ];
+
+	"010" -> "013" [ id="010013", label="hb",  weight=0 ];
+
+	"010" -> "014" [ id="010014", label="hb",  weight=0 ];
+
+	"14" [ label="14 Add 2 {0:0, 1:4, 2:0}",  weight=0 ];
+
+	"14" -> "18" [ id="1418", label="hb",  weight=0 ];
+
+	"14" -> "19" [ id="1419", label="hb",  weight=0 ];
+
+	"14" -> "110" [ id="14110", label="hb",  weight=0 ];
+
+	"14" -> "15" [ id="1415", label="hb",  weight=0 ];
+
+	"14" -> "217" [ id="14217", label="hb",  weight=0 ];
+
+	"14" -> "16" [ id="1416", label="hb",  weight=0 ];
+
+	"14" -> "17" [ id="1417", label="hb",  weight=0 ];
+
+	"23" [ label="23 Add 0 {0:0, 1:0, 2:3}",  weight=0 ];
+
+	"23" -> "24" [ id="2324", label="hb",  weight=0 ];
+
+	"23" -> "25" [ id="2325", label="hb",  weight=0 ];
+
+	"23" -> "29" [ id="2329", label="hb",  weight=0 ];
+
+	"23" -> "210" [ id="23210", label="hb",  weight=0 ];
+
+	"23" -> "213" [ id="23213", label="hb",  weight=0 ];
+
+	"23" -> "214" [ id="23214", label="hb",  weight=0 ];
+
+	"23" -> "217" [ id="23217", label="hb",  weight=0 ];
+
+	"21" [ label="21 Add 8 {0:0, 1:0, 2:1}",  weight=0 ];
+
+	"21" -> "29" [ id="2129", label="hb",  weight=0 ];
+
+	"21" -> "214" [ id="21214", label="hb",  weight=0 ];
+
+	"21" -> "217" [ id="21217", label="hb",  weight=0 ];
+
+	"21" -> "210" [ id="21210", label="hb",  weight=0 ];
+
+	"21" -> "213" [ id="21213", label="hb",  weight=0 ];
+
+	"21" -> "22" [ id="2122", label="hb",  weight=0 ];
+
+	"21" -> "23" [ id="2123", label="hb",  weight=0 ];
+
+	"21" -> "24" [ id="2124", label="hb",  weight=0 ];
+
+	"21" -> "013" [ id="21013", label="hb",  weight=0 ];
+
+	"21" -> "014" [ id="21014", label="hb",  weight=0 ];
+
+	"21" -> "25" [ id="2125", label="hb",  weight=0 ];
+
+	"11" [ label="11 Rem 0 {0:0, 1:1, 2:0}",  weight=0 ];
+
+	"11" -> "17" [ id="1117", label="hb",  weight=0 ];
+
+	"11" -> "217" [ id="11217", label="hb",  weight=0 ];
+
+	"11" -> "213" [ id="11213", label="hb",  weight=0 ];
+
+	"11" -> "05" [ id="1105", label="ao",  weight=0 ];
+
+	"11" -> "013" [ id="11013", label="hb",  weight=0 ];
+
+	"11" -> "014" [ id="11014", label="hb",  weight=0 ];
+
+	"11" -> "16" [ id="1116", label="hb",  weight=0 ];
+
+	"11" -> "18" [ id="1118", label="hb",  weight=0 ];
+
+	"11" -> "14" [ id="1114", label="hb",  weight=0 ];
+
+	"11" -> "09" [ id="1109", label="hb",  weight=0 ];
+
+	"11" -> "210" [ id="11210", label="hb",  weight=0 ];
+
+	"11" -> "19" [ id="1119", label="hb",  weight=0 ];
+
+	"11" -> "010" [ id="11010", label="hb",  weight=0 ];
+
+	"11" -> "110" [ id="11110", label="hb",  weight=0 ];
+
+	"11" -> "12" [ id="1112", label="hb",  weight=0 ];
+
+	"11" -> "214" [ id="11214", label="hb",  weight=0 ];
+
+	"11" -> "15" [ id="1115", label="hb",  weight=0 ];
+
+	"11" -> "04" [ id="1104", label="ao",  weight=0 ];
+
+	"11" -> "23" [ id="1123", label="ao",  weight=0 ];
+
+	"11" -> "29" [ id="1129", label="hb",  weight=0 ];
+
+	"11" -> "13" [ id="1113", label="hb",  weight=0 ];
+
+	"05" [ label="05 Add 0 {0:5, 1:0, 2:0}",  weight=0 ];
+
+	"05" -> "014" [ id="05014", label="hb",  weight=0 ];
+
+	"05" -> "06" [ id="0506", label="hb",  weight=0 ];
+
+	"05" -> "09" [ id="0509", label="hb",  weight=0 ];
+
+	"05" -> "010" [ id="05010", label="hb",  weight=0 ];
+
+	"05" -> "013" [ id="05013", label="hb",  weight=0 ];
+
+	"03" [ label="03 Rem 3 {0:3, 1:0, 2:0}",  weight=0 ];
+
+	"03" -> "010" [ id="03010", label="hb",  weight=0 ];
+
+	"03" -> "013" [ id="03013", label="hb",  weight=0 ];
+
+	"03" -> "014" [ id="03014", label="hb",  weight=0 ];
+
+	"03" -> "04" [ id="0304", label="hb",  weight=0 ];
+
+	"03" -> "05" [ id="0305", label="hb",  weight=0 ];
+
+	"03" -> "06" [ id="0306", label="hb",  weight=0 ];
+
+	"03" -> "09" [ id="0309", label="hb",  weight=0 ];
+
+	"17" [ label="17 Add 0 {0:0, 1:7, 2:0}",  weight=0 ];
+
+	"17" -> "18" [ id="1718", label="hb",  weight=0 ];
+
+	"17" -> "19" [ id="1719", label="hb",  weight=0 ];
+
+	"17" -> "110" [ id="17110", label="hb",  weight=0 ];
+
+	"210" [ label="210 Rem 0 {0:2, 1:1, 2:7}",  weight=0 ];
+
+	"210" -> "217" [ id="210217", label="hb",  weight=0 ];
+
+	"210" -> "04" [ id="21004", label="ao",  weight=0 ];
+
+	"210" -> "05" [ id="21005", label="ao",  weight=0 ];
+
+	"210" -> "17" [ id="21017", label="ao",  weight=0 ];
+
+	"210" -> "010" [ id="210010", label="ao",  weight=0 ];
+
+	"210" -> "213" [ id="210213", label="hb",  weight=0 ];
+
+	"210" -> "214" [ id="210214", label="hb",  weight=0 ];
+
+	"13" [ label="13 Rem 1 {0:0, 1:3, 2:0}",  weight=0 ];
+
+	"13" -> "14" [ id="1314", label="hb",  weight=0 ];
+
+	"13" -> "110" [ id="13110", label="hb",  weight=0 ];
+
+	"13" -> "013" [ id="13013", label="hb",  weight=0 ];
+
+	"13" -> "217" [ id="13217", label="hb",  weight=0 ];
+
+	"13" -> "19" [ id="1319", label="hb",  weight=0 ];
+
+	"13" -> "18" [ id="1318", label="hb",  weight=0 ];
+
+	"13" -> "014" [ id="13014", label="hb",  weight=0 ];
+
+	"13" -> "213" [ id="13213", label="hb",  weight=0 ];
+
+	"13" -> "24" [ id="1324", label="ao",  weight=0 ];
+
+	"13" -> "214" [ id="13214", label="hb",  weight=0 ];
+
+	"13" -> "15" [ id="1315", label="hb",  weight=0 ];
+
+	"13" -> "16" [ id="1316", label="hb",  weight=0 ];
+
+	"13" -> "17" [ id="1317", label="hb",  weight=0 ];
+
+	"16" [ label="16 Add 8 {0:0, 1:6, 2:0}",  weight=0 ];
+
+	"16" -> "17" [ id="1617", label="hb",  weight=0 ];
+
+	"16" -> "18" [ id="1618", label="hb",  weight=0 ];
+
+	"16" -> "19" [ id="1619", label="hb",  weight=0 ];
+
+	"16" -> "110" [ id="16110", label="hb",  weight=0 ];
+
+	"04" [ label="04 Add 0 {0:4, 1:0, 2:0}",  weight=0 ];
+
+	"04" -> "05" [ id="0405", label="hb",  weight=0 ];
+
+	"04" -> "06" [ id="0406", label="hb",  weight=0 ];
+
+	"04" -> "09" [ id="0409", label="hb",  weight=0 ];
+
+	"04" -> "010" [ id="04010", label="hb",  weight=0 ];
+
+	"04" -> "013" [ id="04013", label="hb",  weight=0 ];
+
+	"04" -> "014" [ id="04014", label="hb",  weight=0 ];
 
 }

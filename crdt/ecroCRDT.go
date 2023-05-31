@@ -77,8 +77,6 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 		return
 	}
 
-	r.Unstable_operations.RemoveVertex(opHash(op))
-
 	//remove all edges that have the operation as target or source
 	adjacencyMap, _ := r.Unstable_operations.AdjacencyMap()
 	for _, edges := range adjacencyMap {
@@ -89,15 +87,16 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 		}
 	}
 
+	r.Unstable_operations.RemoveVertex(opHash(op))
+
 	r.Stable_st = r.Data.Apply(r.Stable_st, t[:io+1])
 	r.Unstable_st = r.Data.Apply(r.Stable_st, t[io+1:])
-	r.Stable_operations = append(r.Stable_operations, t[io+1:]...)
+	r.Stable_operations = append(r.Stable_operations, t[:io+1]...)
 }
 
 func (r *EcroCRDT) Query() any {
-	// log.Println("REPLICA", r.Id, "UNORDERED", r.Unstable_operations)
-	// sortedOperations := r.order(r.Unstable_operations)
-	// log.Println("REPLICA", r.Id, "ORDERED", sortedOperations)
+	r.StabilizeLock.Lock()
+	defer r.StabilizeLock.Unlock()
 	return r.Unstable_st
 }
 

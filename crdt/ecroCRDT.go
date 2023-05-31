@@ -51,7 +51,7 @@ func NewEcroCRDT(id string, state any, data EcroDataI) *EcroCRDT {
 
 func (r *EcroCRDT) Effect(op communication.Operation) {
 	r.StabilizeLock.Lock()
-	r.Unstable_operations.AddVertex(op, graph.VertexAttribute("label", opHash(op)+" "+op.Type+" "+strconv.Itoa(op.Value.(int))+" "+op.Version.ReturnVCString()))
+	r.Unstable_operations.AddVertex(op, graph.VertexAttribute("label", opHash(op)+" "+op.Type+" "+op.Version.ReturnVCString()))
 	if r.addEdges(op) {
 		r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
 	} else {

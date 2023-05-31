@@ -46,7 +46,7 @@ func Order(operations []communication.Operation) []communication.Operation {
 
 	for i := len(sortedOperations) - 2; i >= 0; i-- {
 		for j := i + 1; j < len(sortedOperations); j++ {
-			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Descendant || (sortedOperations[i].Concurrent(sortedOperations[j]) && Orde(sortedOperations[i], sortedOperations[j]) && !Commutes(sortedOperations[i], sortedOperations[j])) {
+			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Descendant || (sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Concurrent && Orde(sortedOperations[i], sortedOperations[j]) && !Commutes(sortedOperations[i], sortedOperations[j])) {
 				if i+1 == j {
 					break
 				}

@@ -15,7 +15,7 @@ import (
 func TestAuction(t *testing.T) {
 
 	// Define property to test
-	property := func(addusers []int, remusers []int, placebids []custom.Bid, close int, numReplicas int) bool {
+	property := func(operations []int, numReplicas int, numOperations int) bool {
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -26,44 +26,49 @@ func TestAuction(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = custom.NewAuctionReplica(strconv.Itoa(i), channels, (numReplicas-1)*(len(addusers)+len(remusers)+len(placebids)+1))
+			replicas[i] = custom.NewAuctionReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
 		var wg sync.WaitGroup
 		for i := range replicas {
-			wg.Add(4)
-			go func(r *replica.Replica, adds []int) {
+			wg.Add(1)
+			go func(r *replica.Replica, operations int) {
 				defer wg.Done()
 				// Perform random add operations
-				for j := 0; j < len(adds); j++ {
-					r.Prepare("AddUser", adds[rand.Intn(len(adds))])
-				}
-			}(replicas[i], addusers)
+				for j := 0; j < operations; j++ {
 
-			go func(r *replica.Replica, rems []int) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(rems); j++ {
-					r.Prepare("RemUser", rems[rand.Intn(len(rems))])
-				}
-			}(replicas[i], remusers)
+					//generate random number
+					OPValue := rand.Intn(10)
 
-			go func(r *replica.Replica) {
-				defer wg.Done()
-				// Perform random rem operations
-				//sleep
-				time.Sleep(time.Duration(close) * time.Millisecond)
-				r.Prepare("Close", nil)
-			}(replicas[i])
+					//choose randomly between addUser remUser placeBid and close
+					OPType := "AddUser"
+					if rand.Intn(4) == 0 {
+						OPType = "AddUser"
+						r.Prepare(OPType, OPValue)
+					} else if rand.Intn(4) == 1 {
+						OPType = "RemUser"
+						r.Prepare(OPType, OPValue)
+					} else if rand.Intn(4) == 2 {
+						OPType = "PlaceBid"
 
-			go func(r *replica.Replica, bids []custom.Bid) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(bids); j++ {
-					r.Prepare("PlaceBid", bids[rand.Intn(len(bids))])
+						q := r.Crdt.Query().(custom.AuctionState)
+						users := q.Users.ToSlice()
+						if len(users) == 0 { //do not generate place bids when there are no users
+							j--
+							continue
+						}
+						user := users[rand.Intn(len(users))].(int)
+
+						OPValue := custom.Bid{User: user, Ammount: rand.Intn(100)}
+						r.Prepare(OPType, OPValue)
+					} else {
+						OPType = "Close"
+						r.Prepare(OPType, nil)
+					}
+
 				}
-			}(replicas[i], placebids)
+			}(replicas[i], operations[i])
 
 		}
 
@@ -74,7 +79,7 @@ func TestAuction(t *testing.T) {
 		for {
 			flag := false
 			for i := 0; i < numReplicas; i++ {
-				if replicas[i].Crdt.NumOps() == uint64(numReplicas*(len(addusers)+len(remusers)+len(placebids)+1)) {
+				if replicas[i].Crdt.NumOps() == uint64(numOperations) {
 					flag = true
 				} else {
 					flag = false
@@ -106,22 +111,20 @@ func TestAuction(t *testing.T) {
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		addusers := []int{1, 2, 3, 4, 5}
-		remusers := []int{1, 4, 5}
-		placebids := []custom.Bid{}
-		close := 1
+		operations_rep0 := 10
+		operations_rep1 := 10
+		operations_rep2 := 10
 
-		vals[0] = reflect.ValueOf(addusers)
-		vals[1] = reflect.ValueOf(remusers)
-		vals[2] = reflect.ValueOf(placebids)
-		vals[3] = reflect.ValueOf(close)
-		vals[4] = reflect.ValueOf(3)
+		operations := []int{operations_rep0, operations_rep1, operations_rep2}
+		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
+		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
+		vals[2] = reflect.ValueOf(30)              //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 300,
+		MaxCount: 100,
 		Values:   gen,
 	}
 

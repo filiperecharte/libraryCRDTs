@@ -1,6 +1,9 @@
 package communication
 
 import (
+	"bytes"
+	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -203,7 +206,7 @@ func (vc VClock) Subtract(vc1 VClock) (subVC VClock) {
 	return subVC
 }
 
-//Sums all of the ticks of a vector clock
+// Sums all of the ticks of a vector clock
 func (vc VClock) Sum() uint64 {
 	vc.Lock()
 	var sum uint64
@@ -212,4 +215,29 @@ func (vc VClock) Sum() uint64 {
 	}
 	vc.Unlock()
 	return sum
+}
+
+
+// ReturnVCString returns a string encoding of a vector clock
+func (vc VClock) ReturnVCString() string {
+	//sort
+	ids := make([]string, len(vc.GetMap()))
+	i := 0
+	for id := range vc.GetMap() {
+		ids[i] = id
+		i++
+	}
+
+	sort.Strings(ids)
+
+	var buffer bytes.Buffer
+	buffer.WriteString("{")
+	for i := range ids {
+		buffer.WriteString(fmt.Sprintf("%s:%d", ids[i], vc.GetMap()[ids[i]]))
+		if i+1 < len(ids) {
+			buffer.WriteString(", ")
+		}
+	}
+	buffer.WriteString("}")
+	return buffer.String()
 }

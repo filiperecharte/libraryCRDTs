@@ -2,7 +2,12 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"os"
+	"strconv"
 	"sync"
+
+	"github.com/dominikbraun/graph"
+	"github.com/dominikbraun/graph/draw"
 )
 
 // data interface
@@ -22,7 +27,7 @@ type EcroCRDT struct {
 	Id                  string
 	Data                EcroDataI //data interface
 	Stable_st           any       // stable state
-	Unstable_operations []communication.Operation
+	Unstable_operations graph.Graph[string, communication.Operation]
 	Stable_operations   []communication.Operation
 	Unstable_st         any //most recent state
 	N_Ops               uint64
@@ -30,44 +35,54 @@ type EcroCRDT struct {
 	StabilizeLock *sync.RWMutex
 }
 
+// initialize ecrocrdt
+func NewEcroCRDT(id string, state any, data EcroDataI) *EcroCRDT {
+	c := EcroCRDT{Id: id,
+		Data:                data,
+		Stable_st:           state,
+		Unstable_operations: graph.New(opHash, graph.Directed(), graph.Acyclic()),
+		Unstable_st:         state,
+		N_Ops:               0,
+		StabilizeLock:       new(sync.RWMutex),
+	}
 
+	return &c
+}
 
 func (r *EcroCRDT) Effect(op communication.Operation) {
 	r.StabilizeLock.Lock()
-	if r.after(op, r.Unstable_operations) {
+	r.Unstable_operations.AddVertex(op, graph.VertexAttribute("label", opHash(op)+" "+op.Type+" "+strconv.Itoa(op.Value.(int))+" "+op.Version.ReturnVCString()))
+	if r.addEdges(op) {
 		r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
-		r.Unstable_operations = append(r.Unstable_operations, op)
 	} else {
-		r.Unstable_operations = append(r.Unstable_operations, op)
-		r.Unstable_st = r.Data.Apply(r.Stable_st, r.order(r.Unstable_operations))
+		r.Unstable_st = r.Data.Apply(r.Stable_st, r.topologicalSort())
 	}
+
+	file, _ := os.Create("./my" + r.Id + "graph.gv")
+	_ = draw.DOT(r.Unstable_operations, file)
+
 	r.StabilizeLock.Unlock()
 	r.N_Ops++
 }
 
 func (r *EcroCRDT) Stabilize(op communication.Operation) {
-	r.Stable_operations = append(r.Stable_operations, op)
-	orderedOperations := r.order(r.Unstable_operations)
+	r.StabilizeLock.Lock()
+	//remove vertex of the operation and all its edges
+	r.Unstable_operations.RemoveVertex(opHash(op))
 
-	first := orderedOperations[0]
-
-	for i, o := range r.Stable_operations {
-		if first.Equals(o) {
-			r.Stable_operations = append(r.Stable_operations[:i], r.Stable_operations[i+1:]...)
-			r.StabilizeLock.Lock()
-			for i1, o1 := range r.Unstable_operations {
-				if first.Equals(o1) {
-					r.Unstable_operations = append(r.Unstable_operations[:i1], r.Unstable_operations[i1+1:]...)
-					break
-				}
+	//remove all edges that have the operation as target or source
+	adjacencyMap, _ := r.Unstable_operations.AdjacencyMap()
+	for _, edges := range adjacencyMap {
+		for _, edge := range edges {
+			if edge.Source == opHash(op) || edge.Target == opHash(op) {
+				r.Unstable_operations.RemoveEdge(edge.Source, edge.Target)
 			}
-			r.Stable_st = r.Data.Apply(r.Stable_st, []communication.Operation{o})
-			r.Unstable_st = r.Data.Apply(r.Stable_st, orderedOperations[1:])
-			r.StabilizeLock.Unlock()
-			break
 		}
 	}
 
+	r.Stable_st = r.Data.Apply(r.Stable_st, []communication.Operation{op})
+	r.Unstable_st = r.Data.Apply(r.Stable_st, r.topologicalSort())
+	r.StabilizeLock.Unlock()
 }
 
 func (r *EcroCRDT) Query() any {
@@ -81,74 +96,109 @@ func (r *EcroCRDT) NumOps() uint64 {
 	return r.N_Ops
 }
 
-func (r *EcroCRDT) after(op communication.Operation, operations []communication.Operation) bool {
-	// commutes and order_after only with concurrent operations
-	if r.commutes(op, operations) || r.causally_after(op, operations) {
-		return true
-	}
-	return false
-}
-
-// it is safe to apply an update after all unstable operations when it commutes with all of the concurrent operations
-func (r *EcroCRDT) commutes(op communication.Operation, operations []communication.Operation) bool {
-	for _, op2 := range operations {
-		if op.Concurrent(op2) && !r.Data.Commutes(op, op2) {
-			return false
+// add edges to graph and return if its descendant of all operations or not
+func (r *EcroCRDT) addEdges(op communication.Operation) bool {
+	isAncestor := true
+	adjacencyMap, _ := r.Unstable_operations.AdjacencyMap()
+	for vertexHash := range adjacencyMap {
+		vertex, _ := r.Unstable_operations.Vertex(vertexHash)
+		if op.Equals(vertex) {
+			continue
 		}
-	}
-	return true
-}
+		cmp := op.Version.Compare(vertex.Version)
+		opHash := opHash(op)
 
-// it is safe to apply an update after all unstable operations when it is causally after all unstable operations
-func (r *EcroCRDT) causally_after(op communication.Operation, operations []communication.Operation) bool {
-	for _, op2 := range operations {
-		if op.Version.Compare(op2.Version) != communication.Ancestor {
-			return false
-		}
-	}
-
-	return true
-}
-
-// order operations
-func (r *EcroCRDT) order(operations []communication.Operation) []communication.Operation {
-	sortedOperations := make([]communication.Operation, len(operations))
-	copy(sortedOperations, operations)
-
-	for i := 0; i < len(sortedOperations); i++ {
-		for j := i + 1; j < len(sortedOperations); j++ {
-			if sortedOperations[i].OriginID > sortedOperations[j].OriginID {
-				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
-			} else if sortedOperations[i].OriginID == sortedOperations[j].OriginID && sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Ancestor {
-				sortedOperations[i], sortedOperations[j] = sortedOperations[j], sortedOperations[i]
+		if cmp == communication.Ancestor {
+			r.Unstable_operations.AddEdge(vertexHash, opHash, graph.EdgeAttributes(map[string]string{"label": "hb", "id": vertexHash + opHash}))
+		} else if cmp == communication.Concurrent {
+			isAncestor = false
+			if r.Data.Order(op, vertex) && !r.Data.Commutes(op, vertex) {
+				r.Unstable_operations.AddEdge(opHash, vertexHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": opHash + vertexHash}))
+			} else if r.Data.Order(vertex, op) && !r.Data.Commutes(vertex, op) {
+				r.Unstable_operations.AddEdge(vertexHash, opHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": vertexHash + opHash}))
 			}
 		}
 	}
 
-	for i := len(sortedOperations) - 2; i >= 0; i-- {
-		for j := i + 1; j < len(sortedOperations); j++ {
+	return isAncestor
+}
 
-			if sortedOperations[i].Version.Compare(sortedOperations[j].Version) == communication.Descendant || (sortedOperations[i].Concurrent(sortedOperations[j]) && r.Data.Order(sortedOperations[j], sortedOperations[i]) && !r.Data.Commutes(sortedOperations[j], sortedOperations[i])) {
-				if i+1 == j {
-					break
+// creates hash for operation
+func opHash(op communication.Operation) string {
+	return op.OriginID + strconv.FormatUint(op.Version.Sum(), 10)
+}
+
+// orders the operations in the graph
+func (r EcroCRDT) topologicalSort() []communication.Operation {
+	//find minimum vertex of the graph (vertex with no incoming edges)
+	//it can have more than one minimum, choose deterministically (by finding the minimum id) and continue algorithm
+
+	//if the minimum exists put it in the topological order and search for the next recursively
+
+	//if the minimum does not exist, the graph has cycles
+	//the algorithm kills an arbitration edge deterministically (by finding the edge with the minimum id)
+	//after killing the edge one of the verices will be the minimum if there is only one cycle
+	//if there's another cycle repeat the process
+
+	var order []communication.Operation
+	removedVertices := make(map[string]bool)
+	removedEdges := make(map[string]map[string]bool)
+
+	for {
+		// Create map to count incoming edges
+		inDegree := make(map[string]int)
+		g, _ := r.Unstable_operations.AdjacencyMap()
+
+		for vertex := range g {
+			inDegree[vertex] = 0 // Initialize inDegree for all vertices to 0
+		}
+
+		for _, edges := range g {
+			for _, edge := range edges {
+				if !removedVertices[edge.Source] && !removedVertices[edge.Target] && !removedEdges[edge.Source][edge.Target] {
+					inDegree[edge.Target]++
 				}
-				op1 := sortedOperations[i]
-				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)
-				sortedOperations = append(sortedOperations[:j-1], append([]communication.Operation{op1}, sortedOperations[j-1:]...)...)
-				break
+			}
+		}
+
+		// Find minimum vertex
+		minVertex := communication.Operation{Type: ""}
+		for vertex, degree := range inDegree {
+			if degree == 0 && !removedVertices[vertex] {
+				if minVertex.Type == "" || vertex < opHash(minVertex) {
+					minVertex, _ = r.Unstable_operations.Vertex(vertex)
+				}
+			}
+		}
+
+		// If no minimum vertex found, there is a cycle
+		if minVertex.Type == "" {
+			minEdge := graph.Edge[string]{Source: "", Target: "", Properties: graph.EdgeProperties{Attributes: map[string]string{"label": "ao"}}}
+			for _, edges := range g {
+				for _, edge := range edges {
+					if edge.Properties.Attributes["label"] == "ao" && (minEdge.Source == "" || edge.Properties.Attributes["id"] < minEdge.Properties.Attributes["id"]) && !removedEdges[edge.Source][edge.Target] {
+						minEdge = edge
+					}
+				}
 			}
 
-			if j == len(sortedOperations)-1 {
-				if i+1 == j {
-					break
-				}
-				op1 := sortedOperations[i]
-				sortedOperations = append(sortedOperations[:i], sortedOperations[i+1:]...)
-				sortedOperations = append(sortedOperations, op1)
-				break
+			// Remove the minimum ID edge from the graph
+			if removedEdges[minEdge.Source] == nil {
+				removedEdges[minEdge.Source] = make(map[string]bool)
 			}
+			removedEdges[minEdge.Source][minEdge.Target] = true
+			continue
+		}
+
+		// Add minimum vertex to topological order and "remove" it from the graph
+		order = append(order, minVertex)
+		removedVertices[opHash(minVertex)] = true
+
+		// If all vertices are "removed", we are done
+		if len(order) == len(g) {
+			break
 		}
 	}
 
-	return sortedOperations
+	return order
 }

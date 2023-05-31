@@ -2,12 +2,10 @@ package crdt
 
 import (
 	"library/packages/communication"
-	"os"
 	"strconv"
 	"sync"
 
 	"github.com/dominikbraun/graph"
-	"github.com/dominikbraun/graph/draw"
 )
 
 // data interface
@@ -57,9 +55,6 @@ func (r *EcroCRDT) Effect(op communication.Operation) {
 	} else {
 		r.Unstable_st = r.Data.Apply(r.Stable_st, r.topologicalSort())
 	}
-
-	file, _ := os.Create("./my" + r.Id + "graph.gv")
-	_ = draw.DOT(r.Unstable_operations, file)
 
 	r.StabilizeLock.Unlock()
 	r.N_Ops++

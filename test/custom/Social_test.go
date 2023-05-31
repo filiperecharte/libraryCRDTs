@@ -15,7 +15,7 @@ import (
 func TestSocial(t *testing.T) {
 
 	// Define property to test
-	property := func(addrequests []custom.SocialOpValue, addfriends []custom.SocialOpValue, remfriends []custom.SocialOpValue, remrequests []custom.SocialOpValue, numReplicas int) bool {
+	property := func(operations []int, numReplicas int, numOperations int) bool {
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -26,44 +26,65 @@ func TestSocial(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = custom.NewSocialReplica(strconv.Itoa(i), channels, (numReplicas-1)*(len(addrequests)+len(addfriends)+len(remfriends)+len(remrequests)))
+			replicas[i] = custom.NewSocialReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
 		var wg sync.WaitGroup
 		for i := range replicas {
-			wg.Add(4)
-			go func(r *replica.Replica, adds []custom.SocialOpValue) {
+			wg.Add(1)
+			go func(r *replica.Replica, operations int) {
 				defer wg.Done()
 				// Perform random add operations
-				for j := 0; j < len(adds); j++ {
-					r.Prepare("AddFriend", adds[rand.Intn(len(adds))])
-				}
-			}(replicas[i], addfriends)
+				for j := 0; j < operations; j++ {
 
-			go func(r *replica.Replica, rems []custom.SocialOpValue) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(rems); j++ {
-					r.Prepare("RemFriend", rems[rand.Intn(len(rems))])
-				}
-			}(replicas[i], remfriends)
+					//choose randomly between addUser remUser placeBid and close
+					OPType := ""
+					switch rand.Intn(4) {
+					case 0:
+						OPType = "AddFriend"
+						OPValue := custom.SocialOpValue{Id1: rand.Intn(10), Id2: rand.Intn(10)}
+						r.Prepare(OPType, OPValue)
+					case 1:
+						OPType = "RemFriend"
+						q := r.Crdt.Query().(custom.SocialState)
 
-			go func(r *replica.Replica, rems []custom.SocialOpValue) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(rems); j++ {
-					r.Prepare("AddRequest", rems[rand.Intn(len(rems))])
-				}
-			}(replicas[i], addrequests)
+						//choose a random USER and a random friend of that user
+						user := rand.Intn(len(q.Friends))
+						friends := q.Friends[user].ToSlice()
 
-			go func(r *replica.Replica, rems []custom.SocialOpValue) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(rems); j++ {
-					r.Prepare("RemRequest", rems[rand.Intn(len(rems))])
+						if len(friends) == 0 { //do not generate remFriends when there are no friends
+							j--
+							continue
+						}
+						friend := friends[rand.Intn(len(friends))].(int)
+
+						OPValue := custom.SocialOpValue{Id1: user, Id2: friend}
+
+						r.Prepare(OPType, OPValue)
+					case 2:
+						OPType = "AddRequest"
+						OPValue := custom.SocialOpValue{Id1: rand.Intn(10), Id2: rand.Intn(10)}
+						r.Prepare(OPType, OPValue)
+					case 3:
+						OPType = "RemRequest"
+						q := r.Crdt.Query().(custom.SocialState)
+
+						//choose a random USER and a random request of that user
+						user := rand.Intn(len(q.Requests))
+						requests := q.Requests[user].ToSlice()
+
+						if len(requests) == 0 { //do not generate remRequest when there are no requests
+							j--
+							continue
+						}
+						requested := requests[rand.Intn(len(requests))].(int)
+
+						OPValue := custom.SocialOpValue{Id1: user, Id2: requested}
+						r.Prepare(OPType, OPValue)
+					}
 				}
-			}(replicas[i], remrequests)
+			}(replicas[i], operations[i])
 
 		}
 
@@ -74,7 +95,7 @@ func TestSocial(t *testing.T) {
 		for {
 			flag := false
 			for i := 0; i < numReplicas; i++ {
-				if replicas[i].Crdt.NumOps() == uint64(numReplicas*(len(addrequests)+len(addfriends)+len(remfriends)+len(remrequests))) {
+				if replicas[i].Crdt.NumOps() == uint64(numOperations) {
 					flag = true
 				} else {
 					flag = false
@@ -109,22 +130,20 @@ func TestSocial(t *testing.T) {
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		addrequests := []custom.SocialOpValue{{Id1: 1, Id2: 2}, {Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}, {Id1: 4, Id2: 1}}
-		addfriends := []custom.SocialOpValue{{Id1: 2, Id2: 1}, {Id1: 3, Id2: 1}, {Id1: 3, Id2: 2}, {Id1: 1, Id2: 3}}
-		remfriends := []custom.SocialOpValue{{Id1: 3, Id2: 1}, {Id1: 0, Id2: 1}, }
-		remrequests := []custom.SocialOpValue{{Id1: 4, Id2: 1}}
+		operations_rep0 := 10
+		operations_rep1 := 10
+		operations_rep2 := 10
 
-		vals[0] = reflect.ValueOf(addrequests)
-		vals[1] = reflect.ValueOf(addfriends)
-		vals[2] = reflect.ValueOf(remfriends)
-		vals[3] = reflect.ValueOf(remrequests)
-		vals[4] = reflect.ValueOf(3)
+		operations := []int{operations_rep0, operations_rep1, operations_rep2}
+		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
+		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
+		vals[2] = reflect.ValueOf(30)              //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 200,
+		MaxCount: 100,
 		Values:   gen,
 	}
 

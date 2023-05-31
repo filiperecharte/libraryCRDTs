@@ -15,7 +15,7 @@ import (
 func TestEGames(t *testing.T) {
 
 	// Define property to test
-	property := func(addtournaments []int, addplayers []int, remtournaments []int, remplayers []int, enroll []custom.Enroll, numReplicas int) bool {
+	property := func(operations []int, numReplicas int, numOperations int) bool {
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -26,53 +26,54 @@ func TestEGames(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = custom.NewEgameReplica(strconv.Itoa(i), channels, (numReplicas-1)*(len(addtournaments)+len(addplayers)+len(remtournaments)+len(remplayers)+len(enroll)))
+			replicas[i] = custom.NewEgameReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
 		var wg sync.WaitGroup
 		for i := range replicas {
-			wg.Add(5)
-			go func(r *replica.Replica, adds []int) {
+			wg.Add(1)
+			go func(r *replica.Replica, operations int) {
 				defer wg.Done()
 				// Perform random add operations
-				for j := 0; j < len(adds); j++ {
-					r.Prepare("AddTournament", adds[rand.Intn(len(adds))])
-				}
-			}(replicas[i], addtournaments)
+				for j := 0; j < operations; j++ {
 
-			go func(r *replica.Replica, rems []int) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(rems); j++ {
-					r.Prepare("RemPlayer", rems[rand.Intn(len(rems))])
-				}
-			}(replicas[i], remplayers)
+					//generate random number
+					OPValue := rand.Intn(10)
 
-			go func(r *replica.Replica, rems []int) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(rems); j++ {
-					r.Prepare("RemTournament", rems[rand.Intn(len(rems))])
-				}
-			}(replicas[i], remtournaments)
+					//choose randomly between addPlayer remPlayer addTournament remTournament enroll
+					OPType := ""
+					switch rand.Intn(5) {
+					case 0:
+						OPType = "AddPlayer"
+						r.Prepare(OPType, OPValue)
+					case 1:
+						OPType = "RemPlayer"
+						r.Prepare(OPType, OPValue)
+					case 2:
+						OPType = "AddTournament"
+						r.Prepare(OPType, OPValue)
+					case 3:
+						OPType = "RemTournament"
+						r.Prepare(OPType, OPValue)
+					case 4:
+						OPType = "Enroll"
+						q := r.Crdt.Query().(custom.EgameState)
+						players := q.Players.ToSlice()
+						tournaments := q.Tournaments.ToSlice()
+						if len(players) == 0 || len(tournaments) == 0 { //do not generate place bids when there are no users
+							j--
+							continue
+						}
+						player := players[rand.Intn(len(players))].(int)
+						tournament := tournaments[rand.Intn(len(tournaments))].(int)
 
-			go func(r *replica.Replica, adds []int) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(adds); j++ {
-					r.Prepare("AddPlayer", adds[rand.Intn(len(adds))])
-				}
-			}(replicas[i], addplayers)
+						OPValue := custom.Enroll{Player: player, Tournament: tournament}
+						r.Prepare(OPType, OPValue)
+					}
 
-			go func(r *replica.Replica, adds []custom.Enroll) {
-				defer wg.Done()
-				// Perform random rem operations
-				for j := 0; j < len(adds); j++ {
-					r.Prepare("Enroll", adds[rand.Intn(len(adds))])
 				}
-			}(replicas[i], enroll)
-
+			}(replicas[i], operations[i])
 		}
 
 		// Wait for all goroutines to finish
@@ -82,7 +83,7 @@ func TestEGames(t *testing.T) {
 		for {
 			flag := false
 			for i := 0; i < numReplicas; i++ {
-				if replicas[i].Crdt.NumOps() == uint64(numReplicas*(len(addtournaments)+len(addplayers)+len(remtournaments)+len(remplayers)+len(enroll))) {
+				if replicas[i].Crdt.NumOps() == uint64(numOperations) {
 					flag = true
 				} else {
 					flag = false
@@ -114,18 +115,14 @@ func TestEGames(t *testing.T) {
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		addtournaments := []int{1, 2, 3, 4}
-		remtournaments := []int{1, 3}
-		addplayers := []int{1, 2, 3, 4}
-		remplayers := []int{2, 4}
-		enroll := []custom.Enroll{{Player: 1, Tournament: 1}, {Player: 2, Tournament: 2}, {Player: 3, Tournament: 3}, {Player: 4, Tournament: 4}}
+		operations_rep0 := 10
+		operations_rep1 := 10
+		operations_rep2 := 10
 
-		vals[0] = reflect.ValueOf(addtournaments)
-		vals[1] = reflect.ValueOf(addplayers)
-		vals[2] = reflect.ValueOf(remtournaments)
-		vals[3] = reflect.ValueOf(remplayers)
-		vals[4] = reflect.ValueOf(enroll)
-		vals[5] = reflect.ValueOf(5)
+		operations := []int{operations_rep0, operations_rep1, operations_rep2}
+		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
+		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
+		vals[2] = reflect.ValueOf(30)              //number of operations
 	}
 
 	// Define config for quick.Check

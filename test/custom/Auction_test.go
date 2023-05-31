@@ -42,16 +42,17 @@ func TestAuction(t *testing.T) {
 					OPValue := rand.Intn(10)
 
 					//choose randomly between addUser remUser placeBid and close
-					OPType := "AddUser"
-					if rand.Intn(4) == 0 {
+					OPType := ""
+					switch rand.Intn(4) {
+					case 0:
 						OPType = "AddUser"
 						r.Prepare(OPType, OPValue)
-					} else if rand.Intn(4) == 1 {
+					case 1:
 						OPType = "RemUser"
 						r.Prepare(OPType, OPValue)
-					} else if rand.Intn(4) == 2 {
+					case 2:
 						OPType = "PlaceBid"
-
+						
 						q := r.Crdt.Query().(custom.AuctionState)
 						users := q.Users.ToSlice()
 						if len(users) == 0 { //do not generate place bids when there are no users
@@ -62,11 +63,10 @@ func TestAuction(t *testing.T) {
 
 						OPValue := custom.Bid{User: user, Ammount: rand.Intn(100)}
 						r.Prepare(OPType, OPValue)
-					} else {
+					case 3:
 						OPType = "Close"
 						r.Prepare(OPType, nil)
 					}
-
 				}
 			}(replicas[i], operations[i])
 

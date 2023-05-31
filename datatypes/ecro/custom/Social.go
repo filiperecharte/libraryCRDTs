@@ -14,8 +14,8 @@ type SocialOpValue struct {
 }
 
 type SocialState struct {
-	Friends  [5]mapset.Set[any] //friends[id] = set of friends of id
-	Requests [5]mapset.Set[any] //requests[id] = set of requests of id
+	Friends  [10]mapset.Set[any] //friends[id] = set of friends of id
+	Requests [10]mapset.Set[any] //requests[id] = set of requests made to id
 }
 
 type Social struct {
@@ -34,7 +34,7 @@ func (s Social) AddFriend(state SocialState, elem any) SocialState {
 func (s Social) AddRequest(state SocialState, elem any) SocialState {
 	elem = elem.(communication.Operation).Value
 	id1, id2 := elem.(SocialOpValue).Id1, elem.(SocialOpValue).Id2
-	state.Requests[id1].Add(id2)
+	state.Requests[id2].Add(id1)
 	return state
 }
 
@@ -91,8 +91,8 @@ func (a Social) Commutes(op1 communication.Operation, op2 communication.Operatio
 func NewSocialReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
 	c := crdt.NewEcroCRDT(id, SocialState{
-		Friends:  [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
-		Requests: [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
+		Friends:  [10]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
+		Requests: [10]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
 	}, Social{id})
 
 	return replica.NewReplica(id, c, channels, delay)
@@ -100,10 +100,17 @@ func NewSocialReplica(id string, channels map[string]chan any, delay int) *repli
 
 // compares if two SocialState are equal for test reasons
 func CompareSocialStates(s1 SocialState, s2 SocialState) bool {
-	for i := 0; i < 5; i++ {
+	if len(s1.Friends) != len(s2.Friends) || len(s1.Requests) != len(s2.Requests) {
+		return false
+	}
+
+	for i := 0; i < len(s1.Friends); i++ {
 		if !s1.Friends[i].Equal(s2.Friends[i]) {
 			return false
 		}
+	}
+
+	for i := 0; i < len(s1.Requests); i++ {
 		if !s1.Requests[i].Equal(s2.Requests[i]) {
 			return false
 		}

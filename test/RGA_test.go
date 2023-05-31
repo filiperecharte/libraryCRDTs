@@ -102,15 +102,7 @@ func TestRGA(t *testing.T) {
 				return false
 			}
 		}
-		for i := 0; i < numReplicas; i++ {
-			q := replicas[i].Crdt.Query().([]datatypes.Vertex)
-			log.Println("Replica ", i)
-			for j := 0; j < len(q); j++ {
-				log.Println(q[j])
-			}
-		}
 
-		log.Println("TEST PASSED")
 		return true
 	}
 

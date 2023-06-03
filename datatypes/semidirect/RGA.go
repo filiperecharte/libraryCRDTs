@@ -5,8 +5,6 @@ import (
 	"library/packages/crdt"
 	"library/packages/replica"
 	"strconv"
-
-	mapset "github.com/deckarep/golang-set/v2"
 )
 
 type RGAOpValue struct {
@@ -51,31 +49,44 @@ func (r RGA) Apply(state any, operations []communication.Operation) any {
 }
 
 func (r RGA) ArbitrationOrder(op1 communication.Operation, op2 communication.Operation) (bool, bool) {
+	//log.Println(r.Id, "ARBITRATIONORDER", op1, op2)
 
-	repair := false
 	//verifies if the two operations are inserts after the same Vertex, if yes order by operation id (timestamp - vectorclock) -> will need repair
 	if op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock)) {
 		//arbitration order by ids
-		order := op1.OriginID+strconv.Itoa(int(op1.Version.Sum())) < op2.OriginID+strconv.Itoa(int(op2.Version.Sum()))
-		if !order {
-			repair = true
-		}
-		return repair, order
+		id1, _ := strconv.Atoi(strconv.Itoa(int(op1.Version.Sum())) + op1.OriginID)
+		id2, _ := strconv.Atoi(strconv.Itoa(int(op2.Version.Sum())) + op2.OriginID)
+		return false, id1 < id2
 		//if the insert is not after the same vertex:
 	} else {
 		//check if one of them is the previous vertex of another, if yes order by causality,
-		if op1.Value.(RGAOpValue).Value == op1.Value.(RGAOpValue).V.Value || op2.Value.(RGAOpValue).Value == op1.Value.(RGAOpValue).V.Value {
+		if op1.Version.Equal(op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock)) {
 			return false, true
 			//if no, they are commutative and we can order them by any rule (e.g. ids)
 		} else {
-			return false, op1.OriginID+strconv.Itoa(int(op1.Version.Sum())) < op2.OriginID+strconv.Itoa(int(op2.Version.Sum()))
+			return true, true
 		}
 	}
 }
 
 func (r RGA) Repair(op1 communication.Operation, op2 communication.Operation) communication.Operation {
 
-	return communication.Operation{}
+	_, ordered := r.ArbitrationOrder(op1, op2)
+	if !ordered {
+		return communication.Operation{
+			Type:    op2.Type,
+			Version: op2.Version,
+			Value: RGAOpValue{
+				Vertex{
+					Timestamp: op1.Version,
+					OriginID:  op1.OriginID,
+				},
+				op2.Value.(RGAOpValue).Value,
+			},
+			OriginID: op2.OriginID,
+		}
+	}
+	return op2
 }
 
 func (r RGA) Query(state any) any {
@@ -91,18 +102,13 @@ func (r RGA) Query(state any) any {
 
 // initialize RGA
 func NewRGAReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
-	r := crdt.Semidirect2CRDT{Id: id, Data: RGA{id}, Unstable_operations: []communication.Operation{}, Unstable_st: mapset.NewSet[any](), N_Ops: 0}
+	r := crdt.NewSemidirect2CRDT(id, []Vertex{{communication.NewVClockFromMap(map[string]uint64{}), "", id}}, RGA{id})
 
-	return replica.NewReplica(id, &r, channels, delay)
+	return replica.NewReplica(id, r, channels, delay)
 }
 
 func indexOfVPtr(vertex Vertex, vertices []Vertex) int {
 	for i, v := range vertices {
-		if vertex.Timestamp == nil && v.Timestamp == nil || vertex.Timestamp == nil {
-			return 0
-		} else if v.Timestamp == nil {
-			continue
-		}
 		if vertex.Timestamp.(communication.VClock).Equal(v.Timestamp.(communication.VClock)) {
 			return i
 		}

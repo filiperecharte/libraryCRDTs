@@ -74,59 +74,10 @@ func Order(operations []communication.Operation) []communication.Operation {
 
 func main() {
 
-	//create two sets
-	ops := []string{
-		"{Rem 5 {0x14001738300 map[0:0 1:0 2:2]} 2}",
-		"{Rem 1 {0x14001739158 map[0:0 1:0 2:3]} 2}",
-		"{Add 2 {0x14001d79f20 map[0:0 1:1 2:0]} 1}",
-		"{Add 2 {0x14001d79fe0 map[0:0 1:2 2:0]} 1}",
-		"{Add 2 {0x14001739fe0 map[0:0 1:3 2:0]} 1}",
-		"{Add 3 {0x140021ac990 map[0:0 1:4 2:0]} 1}",
-		"{Add 5 {0x14001e44408 map[0:0 1:5 2:0]} 1}",
-		"{Rem 5 {0x140021acff0 map[0:1 1:6 2:0]} 1}",
-		"{Rem 5 {0x14001e447e0 map[0:1 1:7 2:0]} 1}",
-		"{Rem 5 {0x14001e447f8 map[0:1 1:8 2:0]} 1}",
-		"{Add 5 {0x14001d79cf8 map[0:2 1:0 2:0]} 0}",
-		"{Add 4 {0x14001d79e90 map[0:3 1:0 2:0]} 0}",
-		"{Add 3 {0x14001d79ea8 map[0:4 1:0 2:0]} 0}",
-		"{Add 2 {0x14001739788 map[0:5 1:0 2:0]} 0}",
-		"{Rem 1 {0x14001e44318 map[0:6 1:1 2:0]} 0}",
-		"{Rem 4 {0x14001e44330 map[0:7 1:1 2:0]} 0}",
-		"{Add 4 {0x140021ac9c0 map[0:1 1:0 2:4]} 2}",
-		"{Rem 1 {0x14001e44498 map[0:8 1:1 2:0]} 0}",
-		"{Add 1 {0x14001e44288 map[0:1 1:0 2:5]} 2}",
-		"{Add 3 {0x14001e44810 map[0:1 1:0 2:6]} 2}",
-		"{Add 3 {0x14001e447b0 map[0:1 1:0 2:7]} 2}",
-		"{Add 3 {0x14001e451b8 map[0:1 1:0 2:8]} 2}",
-		// "{Add 4 {0x140001281c8 map[0:1 1:0 2:4]}  2}",
-		// "{Rem 1 {0x140001281e0 map[0:8 1:1 2:0]}  0}",
-		// "{Add 1 {0x140001281f8 map[0:1 1:0 2:5]}  2}",
-		// "{Add 3 {0x14000128210 map[0:1 1:0 2:6]}  2}",
-		// "{Add 3 {0x14000128228 map[0:1 1:0 2:7]}  2}",
-		// "{Add 3 {0x14000128240 map[0:1 1:0 2:8]}  2}",
-		// "{Add 2 {0x14000128078 map[0:0 1:1 2:0]}  1}",
-		// "{Add 2 {0x14000128090 map[0:0 1:2 2:0]}  1}",
-		// "{Add 2 {0x140001280a8 map[0:0 1:3 2:0]}  1}",
-		// "{Add 3 {0x140001280c0 map[0:0 1:4 2:0]}  1}",
-		// "{Add 5 {0x140001280d8 map[0:0 1:5 2:0]}  1}",
-		// "{Rem 5 {0x140001280f0 map[0:1 1:6 2:0]}  1}",
-		// "{Rem 5 {0x14000128108 map[0:1 1:7 2:0]}  1}",
-		// "{Rem 5 {0x14000128120 map[0:1 1:8 2:0]}  1}",
-	}
+	op1 := communication.Operation{}
+	op2 := communication.Operation{}
 
-	operations := []communication.Operation{}
-	for _, op := range ops {
-		o, _ := parseMessage(op)
-		operations = append(operations, o)
-	}
-
-	//sort operations
-	operations = Order(operations)
-
-	fmt.Println("----SORTED OPERATIONS----")
-	for _, op := range operations {
-		fmt.Println(op)
-	}
+	fmt.Println(op1.Equals(op2))
 
 }
 

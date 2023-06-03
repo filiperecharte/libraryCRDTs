@@ -2,13 +2,10 @@ package crdt
 
 import (
 	"library/packages/communication"
-	"log"
-	"os"
 	"strconv"
 	"sync"
 
 	"github.com/dominikbraun/graph"
-	"github.com/dominikbraun/graph/draw"
 )
 
 // all updates are reparable
@@ -76,8 +73,8 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 		}
 	}
 
-	file, _ := os.Create("./my" + r.Id + "graph.gv")
-	_ = draw.DOT(r.Unstable_operations, file)
+	// file, _ := os.Create("./my" + r.Id + "graph.gv")
+	// _ = draw.DOT(r.Unstable_operations, file)
 
 	r.N_Ops++
 	r.effectLock.Unlock()

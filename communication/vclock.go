@@ -217,7 +217,6 @@ func (vc VClock) Sum() uint64 {
 	return sum
 }
 
-
 // ReturnVCString returns a string encoding of a vector clock
 func (vc VClock) ReturnVCString() string {
 	//sort

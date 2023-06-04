@@ -24,7 +24,8 @@ type RGA struct {
 }
 
 func (r RGA) Apply(state any, operations []communication.Operation) any {
-	st := state.([]Vertex)
+	stCpy := state.([]Vertex)
+
 	for _, op := range operations {
 		msg := op
 		switch msg.Type {
@@ -33,19 +34,21 @@ func (r RGA) Apply(state any, operations []communication.Operation) any {
 			newVertexPrev := msg.Value.(RGAOpValue).V
 
 			// find index where predecessor vertex can be found
-			predecessorIdx := indexOfVPtr(newVertexPrev, st)
+			predecessorIdx := indexOfVPtr(newVertexPrev, stCpy)
 
-			newVertices := append(st[:predecessorIdx+1], append([]Vertex{newVertex}, st[predecessorIdx+1:]...)...)
+			newVertices := append(stCpy[:predecessorIdx+1], append([]Vertex{newVertex}, stCpy[predecessorIdx+1:]...)...)
 
-			st = newVertices
+			stCpy = newVertices
 		case "Rem":
 			removeVertex := msg.Value.(RGAOpValue).V
 			// find index where removed vertex can be found and clear its content to tombstone it
-			index := indexOfVPtr(removeVertex, st)
-			st[index] = Vertex{st[index].Timestamp, nil, st[index].OriginID}
+			index := indexOfVPtr(removeVertex, stCpy)
+
+			newVertices := append(stCpy[:index], stCpy[index+1:]...)
+			stCpy = newVertices
 		}
 	}
-	return st
+	return stCpy
 }
 
 func (r RGA) ArbitrationOrder(op1 communication.Operation, op2 communication.Operation) (bool, bool) {
@@ -89,15 +92,8 @@ func (r RGA) Repair(op1 communication.Operation, op2 communication.Operation) co
 	return op2
 }
 
-func (r RGA) Query(state any) any {
-	//removes tombstones
-	noTombs := []Vertex{}
-	for i := 0; i < len(state.([]Vertex)); i++ {
-		if state.([]Vertex)[i].Value != nil {
-			noTombs = append(noTombs, state.([]Vertex)[i])
-		}
-	}
-	return noTombs
+func (r RGA) MainOp() string {
+	return "Add"
 }
 
 // initialize RGA
@@ -133,4 +129,15 @@ func RGAEqual(vertices1 []Vertex, vertices2 []Vertex) bool {
 		}
 	}
 	return true
+}
+
+// deep copy state of RGA
+func RGACopy(state []Vertex) []Vertex {
+	stCpy := make([]Vertex, len(state))
+	for i, v := range state {
+		stCpy[i].Value = v.Value
+		stCpy[i].Timestamp = v.Timestamp.(communication.VClock).Copy()
+		stCpy[i].OriginID = v.OriginID
+	}
+	return stCpy
 }

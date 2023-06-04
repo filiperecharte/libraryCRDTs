@@ -56,11 +56,11 @@ func TestRGA(t *testing.T) {
 					if rand.Intn(2) == 0 {
 						OPType = "Add"
 					} else {
-						OPType = "Add"
-						// if v.Timestamp == nil { //do not generate removes to the head of the list
-						// 	j--
-						// 	continue
-						// }
+						OPType = "Rem"
+						if v.Value == "" { //do not generate removes to the head of the list
+							j--
+							continue
+						}
 					}
 
 					OPValue := datatypes.RGAOpValue{
@@ -123,7 +123,7 @@ func TestRGA(t *testing.T) {
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1,
+		MaxCount: 30,
 		Values:   gen,
 	}
 

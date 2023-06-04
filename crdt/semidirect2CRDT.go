@@ -20,6 +20,8 @@ type Semidirect2DataI interface {
 	// the second tells if the order op1 > op2 is correct or needs to be swapped
 	ArbitrationOrder(op1 communication.Operation, op2 communication.Operation) (bool, bool)
 
+	MainOp() string
+
 	// Repairs unstable operations.
 	Repair(op1 communication.Operation, op2 communication.Operation) communication.Operation
 }
@@ -28,6 +30,8 @@ type Semidirect2CRDT struct {
 	Id                  string
 	Data                Semidirect2DataI                             //data interface
 	Unstable_operations graph.Graph[string, communication.Operation] //all aplied updates
+	Stable_operations   []communication.Operation
+	NonMain_operations  []communication.Operation
 	Unstable_st         any
 	N_Ops               uint64
 
@@ -36,9 +40,11 @@ type Semidirect2CRDT struct {
 
 // initialize semidirectcrdt
 func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI) *Semidirect2CRDT {
-	c := Semidirect2CRDT{Id: id,
+	c := Semidirect2CRDT{
+		Id:                  id,
 		Data:                data,
 		Unstable_operations: graph.New(opHash, graph.Directed(), graph.Acyclic()),
+		NonMain_operations:  []communication.Operation{},
 		Unstable_st:         state,
 		N_Ops:               0,
 		effectLock:          new(sync.RWMutex),
@@ -49,6 +55,14 @@ func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI) *Semidirect
 
 func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 	r.effectLock.Lock()
+	defer r.effectLock.Unlock()
+
+	if r.Data.MainOp() != op.Type {
+		r.NonMain_operations = append(r.NonMain_operations, op)
+		r.N_Ops++
+		return
+	}
+
 	t, err := graph.StableTopologicalSort(r.Unstable_operations, less)
 	if err != nil {
 		panic(err)
@@ -73,23 +87,52 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 		}
 	}
 
-	// file, _ := os.Create("./my" + r.Id + "graph.gv")
-	// _ = draw.DOT(r.Unstable_operations, file)
-
 	r.N_Ops++
-	r.effectLock.Unlock()
 }
 
 func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
-	// for i, o := range r.Unstable_operations {
-	// 	if o.Equals(op) {
-	// 		r.Unstable_operations = append(r.Unstable_operations[:i], r.Unstable_operations[i+1:]...)
-	// 		break
-	// 	}
-	// }
+	r.effectLock.Lock()
+	defer r.effectLock.Unlock()
+
+	if r.Data.MainOp() != op.Type {
+		//remove from non main operations
+		for i, v := range r.NonMain_operations {
+			if v.Equals(op) {
+				r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
+				break
+			}
+		}
+		return
+	}
+
+	//remove vertex of the operation and all its edges
+	r.Stable_operations = append(r.Stable_operations, op)
+	t, err := graph.StableTopologicalSort(r.Unstable_operations, less)
+	if err != nil {
+		panic(err)
+	}
+	io := r.indexOf(t, op)
+
+	if !r.prefixStable(t, io) {
+		return
+	}
+
+	//remove all edges that have the operation as target or source
+	adjacencyMap, _ := r.Unstable_operations.AdjacencyMap()
+	for _, edges := range adjacencyMap {
+		for _, edge := range edges {
+			if edge.Source == opHash(op) || edge.Target == opHash(op) {
+				r.Unstable_operations.RemoveEdge(edge.Source, edge.Target)
+			}
+		}
+	}
+
+	r.Unstable_operations.RemoveVertex(opHash(op))
 }
 
 func (r *Semidirect2CRDT) Query() any {
+	//apply all non main operations
+	//query_st := r.Data.Apply(r.Unstable_st, r.NonMain_operations)
 	return r.Unstable_st
 }
 
@@ -114,4 +157,26 @@ func less(a, b string) bool {
 	n1, _ := strconv.Atoi(a)
 	n2, _ := strconv.Atoi(b)
 	return n1 < n2
+}
+
+// check if prefix of the operations is stable (all operations of the prefix are in stable_operations)
+func (r Semidirect2CRDT) prefixStable(operations []string, index int) bool {
+	for _, vertexHash := range operations[:index+1] {
+		o, _ := r.Unstable_operations.Vertex(vertexHash)
+		if !contains(r.Stable_operations, o) {
+			return false
+		}
+	}
+	return true
+}
+
+// gets index of operation in array
+func (r Semidirect2CRDT) indexOf(operations []string, op communication.Operation) int {
+	for i, vertexHash := range operations {
+		o, _ := r.Unstable_operations.Vertex(vertexHash)
+		if op.Equals(o) {
+			return i
+		}
+	}
+	return -1
 }

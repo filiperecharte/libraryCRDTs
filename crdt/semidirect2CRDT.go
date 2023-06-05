@@ -94,16 +94,16 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	r.effectLock.Lock()
 	defer r.effectLock.Unlock()
 
-	if r.Data.MainOp() != op.Type {
-		//remove from non main operations
-		for i, v := range r.NonMain_operations {
-			if v.Equals(op) {
-				r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
-				break
-			}
-		}
-		return
-	}
+	// if r.Data.MainOp() != op.Type {
+	// 	//remove from non main operations
+	// 	for i, v := range r.NonMain_operations {
+	// 		if v.Equals(op) {
+	// 			r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
+	// 			break
+	// 		}
+	// 	}
+	// 	return
+	// }
 
 	//remove vertex of the operation and all its edges
 	r.Stable_operations = append(r.Stable_operations, op)
@@ -132,8 +132,8 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 
 func (r *Semidirect2CRDT) Query() any {
 	//apply all non main operations
-	//query_st := r.Data.Apply(r.Unstable_st, r.NonMain_operations)
-	return r.Unstable_st
+	query_st := r.Data.Apply(r.Unstable_st, r.NonMain_operations)
+	return query_st
 }
 
 func (r *Semidirect2CRDT) NumOps() uint64 {

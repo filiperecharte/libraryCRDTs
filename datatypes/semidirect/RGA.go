@@ -24,7 +24,7 @@ type RGA struct {
 }
 
 func (r RGA) Apply(state any, operations []communication.Operation) any {
-	stCpy := state.([]Vertex)
+	stCpy := RGACopy(state.([]Vertex))
 
 	for _, op := range operations {
 		msg := op
@@ -43,6 +43,9 @@ func (r RGA) Apply(state any, operations []communication.Operation) any {
 			removeVertex := msg.Value.(RGAOpValue).V
 			// find index where removed vertex can be found and clear its content to tombstone it
 			index := indexOfVPtr(removeVertex, stCpy)
+			if index == -1 {
+				continue
+			}
 
 			newVertices := append(stCpy[:index], stCpy[index+1:]...)
 			stCpy = newVertices

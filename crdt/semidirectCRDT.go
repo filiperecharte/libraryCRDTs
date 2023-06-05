@@ -45,8 +45,8 @@ func (r *SemidirectCRDT) Stabilize(op communication.Operation) {
 	}
 }
 
-func (r *SemidirectCRDT) Query() any {
-	return r.Unstable_st
+func (r *SemidirectCRDT) Query() (any, any) {
+	return r.Unstable_st, nil
 }
 
 func (r *SemidirectCRDT) NumOps() uint64 {

@@ -300,7 +300,7 @@ func (mw *Middleware) messageDelayerHandler(msg communication.Message) {
 	mw.MessagesDelay = append(mw.MessagesDelay, MessageDelay{msg: msg, delayed: false})
 
 	//if there are 5 or more messages in the queue, select one randomly to be delayed, otherwise continue receiving messages
-	if len(mw.MessagesDelay) >= 5 {
+	if len(mw.MessagesDelay) >= 1 {
 		if len(mw.MessagesDelay) == mw.Delay {
 			for i, md := range mw.MessagesDelay {
 				if !md.delayed {

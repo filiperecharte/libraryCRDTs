@@ -22,7 +22,7 @@ type CrdtI interface {
 
 	// Query made by a client to a replica that returns the current state of the CRDT
 	// after applying the unstable operations into the CRDT stable state
-	Query() any
+	Query() (any, any)
 
 	// Returns the number of operations applied to the CRDT for testing purposes
 	NumOps() uint64

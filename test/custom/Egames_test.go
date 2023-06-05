@@ -58,9 +58,9 @@ func TestEGames(t *testing.T) {
 						r.Prepare(OPType, OPValue)
 					case 4:
 						OPType = "Enroll"
-						q := r.Crdt.Query().(custom.EgameState)
-						players := q.Players.ToSlice()
-						tournaments := q.Tournaments.ToSlice()
+						q, _ := r.Crdt.Query()
+						players := q.(custom.EgameState).Players.ToSlice()
+						tournaments := q.(custom.EgameState).Tournaments.ToSlice()
 						if len(players) == 0 || len(tournaments) == 0 { //do not generate place bids when there are no users
 							j--
 							continue
@@ -97,17 +97,19 @@ func TestEGames(t *testing.T) {
 
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
-			st := replicas[i].Crdt.Query().(custom.EgameState)
-			stt := replicas[0].Crdt.Query().(custom.EgameState)
-			if !custom.CompareEgameStates(st, stt) {
+			st, _ := replicas[i].Crdt.Query()
+			stt, _ := replicas[0].Crdt.Query()
+			if !custom.CompareEgameStates(st.(custom.EgameState), stt.(custom.EgameState)) {
 				for i := 0; i < numReplicas; i++ {
-					t.Error("Replica ", i, ": ", replicas[i].Crdt.Query())
+					st, _ := replicas[i].Crdt.Query()
+					t.Error("Replica ", i, ": ", st)
 				}
 				return false
 			}
 		}
 		for i := 0; i < numReplicas; i++ {
-			t.Log("Replica ", i, ": ", replicas[i].Crdt.Query())
+			st, _ := replicas[i].Crdt.Query()
+			t.Log("Replica ", i, ": ", st)
 		}
 		return true
 	}

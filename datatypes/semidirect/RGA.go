@@ -4,6 +4,7 @@ import (
 	"library/packages/communication"
 	"library/packages/crdt"
 	"library/packages/replica"
+	"log"
 	"strconv"
 )
 
@@ -43,7 +44,9 @@ func (r RGA) Apply(state any, operations []communication.Operation) any {
 			removeVertex := msg.Value.(RGAOpValue).V
 			// find index where removed vertex can be found and clear its content to tombstone it
 			index := indexOfVPtr(removeVertex, stCpy)
-
+			if index == -1 {
+				continue
+			}
 			newVertices := append(stCpy[:index], stCpy[index+1:]...)
 			stCpy = newVertices
 		}
@@ -83,6 +86,26 @@ func (r RGA) Repair(op1 communication.Operation, op2 communication.Operation) co
 				Vertex{
 					Timestamp: op1.Version,
 					OriginID:  op1.OriginID,
+				},
+				op2.Value.(RGAOpValue).Value,
+			},
+			OriginID: op2.OriginID,
+		}
+	}
+	return op2
+}
+
+func (r RGA) RepairCausal(op1 communication.Operation, op2 communication.Operation) communication.Operation {
+
+	if op1.Type == "Rem" && op2.Type == "Add" &&
+		op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock)) {
+		log.Println("REPAIRCAUSAL", op1, op2)
+		return communication.Operation{
+			Type:    op2.Type,
+			Version: op2.Version,
+			Value: RGAOpValue{
+				Vertex{
+					Timestamp: communication.VClock{},
 				},
 				op2.Value.(RGAOpValue).Value,
 			},

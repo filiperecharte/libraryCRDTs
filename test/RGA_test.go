@@ -12,6 +12,8 @@ import (
 	"testing"
 	"testing/quick"
 	"time"
+
+	"github.com/jmcvetta/randutil"
 )
 
 // variable with the alphabet to generate random strings
@@ -45,8 +47,7 @@ func TestRGA(t *testing.T) {
 
 				for j := 0; j < operations; j++ {
 					//choose a predecessor or a vertex to remove randomly from query
-					q := r.Crdt.Query().([]datatypes.Vertex)
-					v := q[rand.Intn(len(q))]
+					v := generateRandomVertex(*r)
 
 					//choose random leter to add
 					value := letters[rand.Intn(len(letters))]
@@ -55,12 +56,14 @@ func TestRGA(t *testing.T) {
 					OPType := "Add"
 					if rand.Intn(2) == 0 {
 						OPType = "Add"
+						log.Println("Added", v)
 					} else {
 						OPType = "Rem"
 						if v.Value == "" { //do not generate removes to the head of the list
 							j--
 							continue
 						}
+						log.Println("Removed", v)
 					}
 
 					OPValue := datatypes.RGAOpValue{
@@ -92,12 +95,14 @@ func TestRGA(t *testing.T) {
 
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
-			if !datatypes.RGAEqual(replicas[i].Crdt.Query().([]datatypes.Vertex), replicas[0].Crdt.Query().([]datatypes.Vertex)) {
+			st, _ := replicas[i].Crdt.Query()
+			stt, _ := replicas[0].Crdt.Query()
+			if !datatypes.RGAEqual(st.([]datatypes.Vertex), stt.([]datatypes.Vertex)) {
 				for i := 0; i < numReplicas; i++ {
 					t.Error("Replica ", i)
-					q := replicas[i].Crdt.Query().([]datatypes.Vertex)
-					for j := 0; j < len(q); j++ {
-						log.Println(q[j])
+					q, _ := replicas[i].Crdt.Query()
+					for j := 0; j < len(q.([]datatypes.Vertex)); j++ {
+						log.Println(q.([]datatypes.Vertex)[j])
 					}
 				}
 				return false
@@ -110,20 +115,19 @@ func TestRGA(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		operations_rep0 := 30
-		operations_rep1 := 30
-		operations_rep2 := 30
+		operations_rep0 := 2
+		operations_rep1 := 2
 
-		operations := []int{operations_rep0, operations_rep1, operations_rep2}
+		operations := []int{operations_rep0, operations_rep1}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(90)              //number of operations
+		vals[2] = reflect.ValueOf(4)               //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 30,
+		MaxCount: 100,
 		Values:   gen,
 	}
 
@@ -131,4 +135,29 @@ func TestRGA(t *testing.T) {
 	if err := quick.Check(property, config); err != nil {
 		t.Error(err)
 	}
+}
+
+func generateRandomVertex(r replica.Replica) datatypes.Vertex {
+	rgaState, _ := r.Crdt.Query()
+
+	v := datatypes.Vertex{}
+	// if len(rgaDeletedState.([]communication.Operation)) != 0 {
+	// 	v = rgaDeletedState.([]communication.Operation)[rand.Intn(len(rgaDeletedState.([]communication.Operation)))].Value.(datatypes.RGAOpValue).V
+	// } else {
+	v = rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
+	// }
+
+	choices := make([]randutil.Choice, 0, 2)
+	choices = append(choices, randutil.Choice{Weight: 1, Item: rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]})
+	choices = append(choices, randutil.Choice{
+		Weight: 5,
+		Item:   v,
+	})
+
+	result, err := randutil.WeightedChoice(choices)
+	if err != nil {
+		panic(err)
+	}
+
+	return result.Item.(datatypes.Vertex)
 }

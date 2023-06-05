@@ -89,10 +89,10 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 	r.Stable_operations = append(r.Stable_operations, t[:io+1]...)
 }
 
-func (r *EcroCRDT) Query() any {
+func (r *EcroCRDT) Query() (any, any) {
 	r.StabilizeLock.Lock()
 	defer r.StabilizeLock.Unlock()
-	return r.Unstable_st
+	return r.Unstable_st, nil
 }
 
 func (r *EcroCRDT) NumOps() uint64 {

@@ -1,7 +1,7 @@
 package test
 
 import (
-	"library/packages/datatypes/ecro"
+	datatypes "library/packages/datatypes/ecro"
 	"library/packages/replica"
 	"math/rand"
 	"reflect"
@@ -61,17 +61,21 @@ func TestMVRegister(t *testing.T) {
 			}
 		}
 
-		// Check that all replicas have the same state
+		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
-			if !reflect.DeepEqual(replicas[i].Crdt.Query(), replicas[0].Crdt.Query()) {
+			st, _ := replicas[i].Crdt.Query()
+			stt, _ := replicas[0].Crdt.Query()
+			if !reflect.DeepEqual(st, stt) {
 				for i := 0; i < numReplicas; i++ {
-					t.Error("Replica ", i, ": ", replicas[i].Crdt.Query())
+					st, _ := replicas[i].Crdt.Query()
+					t.Error("Replica ", i, ": ", st)
 				}
 				return false
 			}
 		}
 		for i := 0; i < numReplicas; i++ {
-			t.Log("Replica ", i, ": ", replicas[i].Crdt.Query())
+			st, _ := replicas[i].Crdt.Query()
+			t.Log("Replica ", i, ": ", st)
 		}
 		return true
 	}

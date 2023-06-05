@@ -35,6 +35,6 @@ func (r *BasicCRDT) Stabilize(op communication.Operation) {
 	r.Data.Apply(r.Stable_st, []communication.Operation{op})
 }
 
-func (r *BasicCRDT) Query() any {
-	return r.Data.Apply(r.Stable_st, r.Data.Order(r.Unstable_operations))
+func (r *BasicCRDT) Query() (any, any) {
+	return r.Data.Apply(r.Stable_st, r.Data.Order(r.Unstable_operations)), nil
 }

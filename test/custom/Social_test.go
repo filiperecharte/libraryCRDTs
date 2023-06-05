@@ -47,11 +47,11 @@ func TestSocial(t *testing.T) {
 						r.Prepare(OPType, OPValue)
 					case 1:
 						OPType = "RemFriend"
-						q := r.Crdt.Query().(custom.SocialState)
+						q, _ := r.Crdt.Query()
 
 						//choose a random USER and a random friend of that user
-						user := rand.Intn(len(q.Friends))
-						friends := q.Friends[user].ToSlice()
+						user := rand.Intn(len(q.(custom.SocialState).Friends))
+						friends := q.(custom.SocialState).Friends[user].ToSlice()
 
 						if len(friends) == 0 { //do not generate remFriends when there are no friends
 							j--
@@ -68,11 +68,11 @@ func TestSocial(t *testing.T) {
 						r.Prepare(OPType, OPValue)
 					case 3:
 						OPType = "RemRequest"
-						q := r.Crdt.Query().(custom.SocialState)
+						q, _ := r.Crdt.Query()
 
 						//choose a random USER and a random request of that user
-						user := rand.Intn(len(q.Requests))
-						requests := q.Requests[user].ToSlice()
+						user := rand.Intn(len(q.(custom.SocialState).Requests))
+						requests := q.(custom.SocialState).Requests[user].ToSlice()
 
 						if len(requests) == 0 { //do not generate remRequest when there are no requests
 							j--
@@ -109,19 +109,19 @@ func TestSocial(t *testing.T) {
 
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
-			st := replicas[i].Crdt.Query().(custom.SocialState)
-			stt := replicas[0].Crdt.Query().(custom.SocialState)
-			if !custom.CompareSocialStates(st, stt) {
+			st, _ := replicas[i].Crdt.Query()
+			stt, _ := replicas[0].Crdt.Query()
+			if !custom.CompareSocialStates(st.(custom.SocialState), stt.(custom.SocialState)) {
 				for i := 0; i < numReplicas; i++ {
-					t.Error("Replica ", i, ": ", replicas[i].Crdt.Query())
+					st, _ := replicas[i].Crdt.Query()
+					t.Error("Replica ", i, ": ", st)
 				}
 				return false
 			}
 		}
 		for i := 0; i < numReplicas; i++ {
-			t.Log("Replica ", i, ": ", replicas[i].Crdt.Query())
-			// replicas[i].Quit()
-			// close(channels[strconv.Itoa(i)])
+			st, _ := replicas[i].Crdt.Query()
+			t.Log("Replica ", i, ": ", st)
 		}
 
 		return true

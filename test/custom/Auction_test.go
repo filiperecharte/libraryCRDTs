@@ -52,9 +52,9 @@ func TestAuction(t *testing.T) {
 						r.Prepare(OPType, OPValue)
 					case 2:
 						OPType = "PlaceBid"
-						
-						q := r.Crdt.Query().(custom.AuctionState)
-						users := q.Users.ToSlice()
+
+						q, _ := r.Crdt.Query()
+						users := q.(custom.AuctionState).Users.ToSlice()
 						if len(users) == 0 { //do not generate place bids when there are no users
 							j--
 							continue
@@ -93,17 +93,19 @@ func TestAuction(t *testing.T) {
 
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
-			st := replicas[i].Crdt.Query().(custom.AuctionState)
-			stt := replicas[0].Crdt.Query().(custom.AuctionState)
-			if !custom.CompareAuctionStates(st, stt) {
+			st, _ := replicas[i].Crdt.Query()
+			stt, _ := replicas[0].Crdt.Query()
+			if !custom.CompareAuctionStates(st.(custom.AuctionState), stt.(custom.AuctionState)) {
 				for i := 0; i < numReplicas; i++ {
-					t.Error("Replica ", i, ": ", replicas[i].Crdt.Query())
+					st, _ := replicas[i].Crdt.Query()
+					t.Error("Replica ", i, ": ", st)
 				}
 				return false
 			}
 		}
 		for i := 0; i < numReplicas; i++ {
-			t.Log("Replica ", i, ": ", replicas[i].Crdt.Query())
+			st, _ := replicas[i].Crdt.Query()
+			t.Log("Replica ", i, ": ", st)
 		}
 		return true
 	}

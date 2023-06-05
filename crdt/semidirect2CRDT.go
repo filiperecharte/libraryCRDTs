@@ -102,6 +102,7 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 		for i, v := range r.NonMain_operations {
 			if v.Equals(op) {
 				r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
+				r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
 				break
 			}
 		}

@@ -25,7 +25,7 @@ type RGA struct {
 }
 
 func (r RGA) Apply(state any, operations []communication.Operation) any {
-	stCpy := state.([]Vertex)
+	stCpy := RGACopy(state.([]Vertex))
 
 	for _, op := range operations {
 		msg := op

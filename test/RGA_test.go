@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"library/packages/communication"
 	datatypes "library/packages/datatypes/semidirect"
 	"library/packages/replica"
 	"log"
@@ -138,14 +139,14 @@ func TestRGA(t *testing.T) {
 }
 
 func generateRandomVertex(r replica.Replica) datatypes.Vertex {
-	rgaState, _ := r.Crdt.Query()
+	rgaState, rgaDeletedState := r.Crdt.Query()
 
 	v := datatypes.Vertex{}
-	// if len(rgaDeletedState.([]communication.Operation)) != 0 {
-	// 	v = rgaDeletedState.([]communication.Operation)[rand.Intn(len(rgaDeletedState.([]communication.Operation)))].Value.(datatypes.RGAOpValue).V
-	// } else {
-	v = rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
-	// }
+	if len(rgaDeletedState.([]communication.Operation)) != 0 {
+		v = rgaDeletedState.([]communication.Operation)[rand.Intn(len(rgaDeletedState.([]communication.Operation)))].Value.(datatypes.RGAOpValue).V
+	} else {
+		v = rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
+	}
 
 	choices := make([]randutil.Choice, 0, 2)
 	choices = append(choices, randutil.Choice{Weight: 1, Item: rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]})

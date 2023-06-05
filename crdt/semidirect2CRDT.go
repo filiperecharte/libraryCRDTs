@@ -137,7 +137,7 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 func (r *Semidirect2CRDT) Query() (any, any) {
 	//apply all non main operations
 	query_st := r.Data.Apply(r.Unstable_st, r.NonMain_operations)
-	return query_st, r.Unstable_operations
+	return query_st, r.NonMain_operations
 }
 
 func (r *Semidirect2CRDT) NumOps() uint64 {

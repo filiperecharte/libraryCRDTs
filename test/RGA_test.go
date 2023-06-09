@@ -57,14 +57,12 @@ func TestRGA(t *testing.T) {
 					OPType := "Add"
 					if rand.Intn(2) == 0 {
 						OPType = "Add"
-						log.Println("Added", v)
 					} else {
 						OPType = "Rem"
 						if v.Value == "" { //do not generate removes to the head of the list
 							j--
 							continue
 						}
-						log.Println("Removed", v)
 					}
 
 					OPValue := datatypes.RGAOpValue{

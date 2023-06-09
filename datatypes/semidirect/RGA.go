@@ -37,6 +37,11 @@ func (r RGA) Apply(state any, operations []communication.Operation) any {
 			// find index where predecessor vertex can be found
 			predecessorIdx := indexOfVPtr(newVertexPrev, stCpy)
 
+			// if predecessor vertex is not found, insert on root
+			if predecessorIdx == -1 {
+				predecessorIdx = 0
+			}
+			
 			newVertices := append(stCpy[:predecessorIdx+1], append([]Vertex{newVertex}, stCpy[predecessorIdx+1:]...)...)
 
 			stCpy = newVertices
@@ -99,13 +104,13 @@ func (r RGA) RepairCausal(op1 communication.Operation, op2 communication.Operati
 
 	if op1.Type == "Rem" && op2.Type == "Add" &&
 		op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock)) {
-		log.Println("REPAIRCAUSAL", op1, op2)
+		log.Println(r.Id, "REPAIRCAUSAL", op1, op2)
 		return communication.Operation{
 			Type:    op2.Type,
 			Version: op2.Version,
 			Value: RGAOpValue{
 				Vertex{
-					Timestamp: communication.VClock{},
+					Timestamp: communication.NewVClockFromMap(map[string]uint64{}),
 				},
 				op2.Value.(RGAOpValue).Value,
 			},

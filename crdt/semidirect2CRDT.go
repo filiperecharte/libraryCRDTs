@@ -46,7 +46,7 @@ func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI) *Semidirect
 	c := Semidirect2CRDT{
 		Id:                  id,
 		Data:                data,
-		Unstable_operations: graph.New(opHash, graph.Directed(), graph.Acyclic()),
+		Unstable_operations: graph.New(opHash2, graph.Directed(), graph.Acyclic()),
 		NonMain_operations:  []communication.Operation{},
 		Unstable_st:         state,
 		N_Ops:               0,
@@ -70,6 +70,9 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 	if err != nil {
 		panic(err)
 	}
+
+	op = r.repairCausal(op)
+
 	newOp := r.repair(op, t)
 	r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{newOp})
 
@@ -84,9 +87,9 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 			continue
 		}
 		if commutative, ordered := r.Data.ArbitrationOrder(vertex, op); !commutative && ordered {
-			r.Unstable_operations.AddEdge(opHash(vertex), opHash(op))
+			r.Unstable_operations.AddEdge(opHash2(vertex), opHash2(op))
 		} else if !commutative && !ordered {
-			r.Unstable_operations.AddEdge(opHash(op), opHash(vertex))
+			r.Unstable_operations.AddEdge(opHash2(op), opHash2(vertex))
 		}
 	}
 
@@ -125,13 +128,13 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	adjacencyMap, _ := r.Unstable_operations.AdjacencyMap()
 	for _, edges := range adjacencyMap {
 		for _, edge := range edges {
-			if edge.Source == opHash(op) || edge.Target == opHash(op) {
+			if edge.Source == opHash2(op) || edge.Target == opHash2(op) {
 				r.Unstable_operations.RemoveEdge(edge.Source, edge.Target)
 			}
 		}
 	}
 
-	r.Unstable_operations.RemoveVertex(opHash(op))
+	r.Unstable_operations.RemoveVertex(opHash2(op))
 }
 
 func (r *Semidirect2CRDT) Query() (any, any) {
@@ -147,16 +150,20 @@ func (r *Semidirect2CRDT) NumOps() uint64 {
 func (r *Semidirect2CRDT) repair(op communication.Operation, ops []string) communication.Operation {
 	//find operations that is concurrent with op
 
-	// for _, nonOP := range r.NonMain_operations {
-	// 	if nonOP.Version.Compare(op.Version) == communication.Descendant {
-	// 		op = r.Data.RepairCausal(nonOP, op)
-	// 	}
-	// }
-
 	for _, v := range ops {
 		o, _ := r.Unstable_operations.Vertex(v)
 		if o.Version.Compare(op.Version) == communication.Concurrent {
 			op = r.Data.Repair(o, op)
+		}
+	}
+
+	return op
+}
+
+func (r *Semidirect2CRDT) repairCausal(op communication.Operation) communication.Operation {
+	for _, nonOP := range r.NonMain_operations {
+		if nonOP.Version.Compare(op.Version) == communication.Descendant {
+			op = r.Data.RepairCausal(nonOP, op)
 		}
 	}
 
@@ -189,4 +196,8 @@ func (r Semidirect2CRDT) indexOf(operations []string, op communication.Operation
 		}
 	}
 	return -1
+}
+
+func opHash2(op communication.Operation) string {
+	return strconv.FormatUint(op.Version.Sum(), 10) + op.OriginID
 }

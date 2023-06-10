@@ -214,8 +214,8 @@ func (mw *Middleware) updatestability(msg communication.Message) {
 	if ok {
 		var NewStableVersion = mw.calculateStableVersion(msg.OriginID)
 		if !NewStableVersion.Equal(mw.StableVersion) {
-			StableDots := NewStableVersion.Subtract(mw.StableVersion)
-			mw.stabilize(StableDots)
+			//StableDots := NewStableVersion.Subtract(mw.StableVersion)
+			mw.stabilize(NewStableVersion)
 			mw.StableVersion = NewStableVersion.Copy()
 		}
 	}
@@ -224,27 +224,27 @@ func (mw *Middleware) updatestability(msg communication.Message) {
 // Order messages on stable dots and send the ones before stable vector to replica
 func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	var L []StableDotValue
-	for k, t := range StableDots.GetMap() {
 
-		mw.SMap.Lock()
-		if _, ok := mw.SMap.m[StableDotKey{k, t}]; ok {
-			L = append(L, mw.SMap.m[StableDotKey{k, t}])
+	for k, t := range StableDots.GetMap() {
+		for t > mw.StableVersion.FindTicks(k) {
+			mw.SMap.Lock()
+			if _, ok := mw.SMap.m[StableDotKey{k, t}]; ok {
+				L = append(L, mw.SMap.m[StableDotKey{k, t}])
+				delete(mw.SMap.m, StableDotKey{k, t})
+			}
+			mw.SMap.Unlock()
+			t--
 		}
-		mw.SMap.Unlock()
 
 	}
+
 	sort.Slice(L, func(i, j int) bool {
 		return L[i].ctr < L[j].ctr
 	})
+
 	for _, stableDot := range L {
 		stableDot.msg.SetType(communication.STB)
 		mw.DeliverCausal <- stableDot.msg
-	}
-	//removes stable dots from SMap
-	for k, t := range StableDots.GetMap() {
-		mw.SMap.Lock()
-		delete(mw.SMap.m, StableDotKey{k, t})
-		mw.SMap.Unlock()
 	}
 }
 

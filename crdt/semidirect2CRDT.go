@@ -29,14 +29,21 @@ type Semidirect2DataI interface {
 	RepairCausal(op1 communication.Operation, op2 communication.Operation) communication.Operation
 }
 
+type NonMainOp struct {
+	Op              communication.Operation
+	HigherTimestamp communication.VClock //to stabilize Op, all operations with lower timestamp must be stable when Op is applied to the state
+}
+
 type Semidirect2CRDT struct {
 	Id                  string
 	Data                Semidirect2DataI                             //data interface
 	Unstable_operations graph.Graph[string, communication.Operation] //all aplied updates
 	Stable_operations   []communication.Operation
-	NonMain_operations  []communication.Operation
+	NonMain_operations  []NonMainOp
 	Unstable_st         any
 	N_Ops               uint64
+
+	higherTimestamp communication.VClock
 
 	effectLock *sync.RWMutex
 }
@@ -47,10 +54,12 @@ func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI) *Semidirect
 		Id:                  id,
 		Data:                data,
 		Unstable_operations: graph.New(opHash2, graph.Directed(), graph.Acyclic()),
-		NonMain_operations:  []communication.Operation{},
+		NonMain_operations:  []NonMainOp{},
 		Unstable_st:         state,
 		N_Ops:               0,
 		effectLock:          new(sync.RWMutex),
+
+		higherTimestamp: communication.VClock{},
 	}
 
 	return &c
@@ -60,8 +69,10 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 	r.effectLock.Lock()
 	defer r.effectLock.Unlock()
 
+	r.higherTimestamp = op.Version
+
 	if r.Data.MainOp() != op.Type {
-		r.NonMain_operations = append(r.NonMain_operations, op)
+		r.NonMain_operations = append(r.NonMain_operations, NonMainOp{op, communication.VClock{}})
 		r.N_Ops++
 		return
 	}
@@ -100,11 +111,19 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	r.effectLock.Lock()
 	defer r.effectLock.Unlock()
 
+	for i, v := range r.NonMain_operations {
+		if v.HigherTimestamp.Equal(r.higherTimestamp) {
+			r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
+			break
+		}
+	}
+
 	if r.Data.MainOp() != op.Type {
 		//remove from non main operations
 		for i, v := range r.NonMain_operations {
-			if v.Equals(op) {
-				r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
+			if v.Op.Equals(op) {
+				//r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
+				r.NonMain_operations[i].HigherTimestamp = r.higherTimestamp
 				r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
 				break
 			}
@@ -139,8 +158,9 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 
 func (r *Semidirect2CRDT) Query() (any, any) {
 	//apply all non main operations
-	query_st := r.Data.Apply(r.Unstable_st, r.NonMain_operations)
-	return query_st, r.NonMain_operations
+	nonMainOp := r.getNonMainOperations()
+	query_st := r.Data.Apply(r.Unstable_st, nonMainOp)
+	return query_st, nonMainOp
 }
 
 func (r *Semidirect2CRDT) NumOps() uint64 {
@@ -162,8 +182,8 @@ func (r *Semidirect2CRDT) repair(op communication.Operation, ops []string) commu
 
 func (r *Semidirect2CRDT) repairCausal(op communication.Operation) communication.Operation {
 	for _, nonOP := range r.NonMain_operations {
-		if nonOP.Version.Compare(op.Version) == communication.Descendant {
-			op = r.Data.RepairCausal(nonOP, op)
+		if nonOP.Op.Version.Compare(op.Version) == communication.Descendant {
+			op = r.Data.RepairCausal(nonOP.Op, op)
 		}
 	}
 
@@ -200,4 +220,14 @@ func (r Semidirect2CRDT) indexOf(operations []string, op communication.Operation
 
 func opHash2(op communication.Operation) string {
 	return strconv.FormatUint(op.Version.Sum(), 10) + op.OriginID
+}
+
+func (r Semidirect2CRDT) getNonMainOperations() []communication.Operation {
+	nonMainOps := []communication.Operation{}
+	for _, op := range r.NonMain_operations {
+		if op.Op.Type != "Add" {
+			nonMainOps = append(nonMainOps, op.Op)
+		}
+	}
+	return nonMainOps
 }

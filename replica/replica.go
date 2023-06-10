@@ -105,9 +105,9 @@ func (r *Replica) Prepare(operationType string, operationValue any) {
 	r.prepareLock.Lock()
 	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
+	r.prepareLock.Unlock()
 	op := communication.Operation{Type: operationType, Value: operationValue, Version: vv, OriginID: r.id}
 	r.TCBcast(op)
-	r.prepareLock.Unlock()
 }
 
 func (r *Replica) GetID() string {

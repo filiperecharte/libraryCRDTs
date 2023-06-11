@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"library/packages/utils"
 	"log"
 	"sync"
 )
@@ -21,7 +22,7 @@ type Semidirect2DataI interface {
 	MainOp() string
 
 	// Repairs unstable operations.
-	Repair(op1 communication.Operation, op2 communication.Operation) communication.Operation
+	Repair(op1 communication.Operation, op2 communication.Operation, state any) communication.Operation
 
 	// Repairs unstable operations.
 	RepairCausal(op1 communication.Operation, op2 communication.Operation) communication.Operation
@@ -100,12 +101,13 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	r.effectLock.Lock()
 	defer r.effectLock.Unlock()
 
-	r.StableMain_operations = append(r.StableMain_operations, op)
+	if r.Data.MainOp() == op.Type {
+		r.StableMain_operations = append(r.StableMain_operations, op)
+	}
 
 	for i, v := range r.NonMain_operations {
 		//log.Println("COMPARING", v.HigherTimestamp, op.Version)
 		if r.becameStable(v.HigherTimestamp) {
-			log.Println("REMOVEDDDDDDDDDDDDDDD--------------------------------------------------------->")
 			r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
 			break
 		}
@@ -158,7 +160,7 @@ func (r *Semidirect2CRDT) repair(op communication.Operation) communication.Opera
 
 	for _, o := range r.Unstable_operations {
 		if o.Version.Compare(op.Version) == communication.Concurrent {
-			op = r.Data.Repair(o, op)
+			op = r.Data.Repair(o, op, r.Unstable_st)
 		}
 	}
 
@@ -178,7 +180,7 @@ func (r *Semidirect2CRDT) repairCausal(op communication.Operation) communication
 // check if prefix of the operations is stable (all operations of the prefix are in stable_operations)
 func (r Semidirect2CRDT) prefixStable(index int) bool {
 	for _, o := range r.Unstable_operations[:index+1] {
-		if !contains(r.StableMain_operations, o) {
+		if !utils.Contains(r.StableMain_operations, o) {
 			return false
 		}
 	}
@@ -198,9 +200,7 @@ func (r Semidirect2CRDT) indexOf(op communication.Operation) int {
 func (r Semidirect2CRDT) getNonMainOperations() []communication.Operation {
 	nonMainOps := []communication.Operation{}
 	for _, op := range r.NonMain_operations {
-		if op.Op.Type != "Add" {
 			nonMainOps = append(nonMainOps, op.Op)
-		}
 	}
 	return nonMainOps
 }
@@ -208,6 +208,7 @@ func (r Semidirect2CRDT) getNonMainOperations() []communication.Operation {
 func (r Semidirect2CRDT) getGreatestOps() []communication.Operation {
 
 	if len(r.Unstable_operations) == 0 {
+		log.Println(r.Id, "GREATEST OPS empty")
 		return []communication.Operation{}
 	}
 
@@ -227,10 +228,14 @@ func (r Semidirect2CRDT) getGreatestOps() []communication.Operation {
 }
 
 func (r Semidirect2CRDT) becameStable(ops []communication.Operation) bool {
+	if len(ops) == 0 {
+		return false
+	}
+
 	for _, op := range ops {
-		if !contains(r.StableMain_operations, op) {
+		if !utils.Contains(r.StableMain_operations, op) {
 			return false
 		}
 	}
-	return false
+	return true
 }

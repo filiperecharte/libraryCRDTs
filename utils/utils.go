@@ -1,5 +1,7 @@
 package utils
 
+import "library/packages/communication"
+
 // get string keys from a map
 func MapToKeys(m map[string]chan interface{}) []string {
 	var list []string
@@ -22,6 +24,16 @@ func InitMin(ids []string) map[string]string {
 func MapValueExists(m map[string]string, value string) bool {
 	for _, v := range m {
 		if v == value || v == "" {
+			return true
+		}
+	}
+	return false
+}
+
+// check if array contains operation
+func Contains(operations []communication.Operation, op communication.Operation) bool {
+	for _, o := range operations {
+		if op.Equals(o) {
 			return true
 		}
 	}

@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"library/packages/utils"
 	"strconv"
 	"sync"
 
@@ -219,19 +220,9 @@ func indexOf(operations []communication.Operation, op communication.Operation) i
 // check if prefix of the operations is stable (all operations of the prefix are in stable_operations)
 func (r EcroCRDT) prefixStable(operations []communication.Operation, index int) bool {
 	for _, o := range operations[:index+1] {
-		if !contains(r.Stable_operations, o) {
+		if !utils.Contains(r.Stable_operations, o) {
 			return false
 		}
 	}
 	return true
-}
-
-// check if array contains operation
-func contains(operations []communication.Operation, op communication.Operation) bool {
-	for _, o := range operations {
-		if op.Equals(o) {
-			return true
-		}
-	}
-	return false
 }

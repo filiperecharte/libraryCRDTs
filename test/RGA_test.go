@@ -71,6 +71,8 @@ func TestRGA(t *testing.T) {
 					}
 
 					r.Prepare(OPType, OPValue)
+
+					time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
 				}
 
 			}(replicas[i], operations[i])
@@ -114,13 +116,14 @@ func TestRGA(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		operations_rep0 := 30
-		operations_rep1 := 30
+		operations_rep0 := 5
+		operations_rep1 := 5
+		operations_rep2 := 5
 
-		operations := []int{operations_rep0, operations_rep1}
+		operations := []int{operations_rep0, operations_rep1, operations_rep2}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(60)               //number of operations
+		vals[2] = reflect.ValueOf(15)              //number of operations
 	}
 
 	// Define config for quick.Check

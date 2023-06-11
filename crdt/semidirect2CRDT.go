@@ -2,10 +2,8 @@ package crdt
 
 import (
 	"library/packages/communication"
-	"strconv"
+	"log"
 	"sync"
-
-	"github.com/dominikbraun/graph"
 )
 
 // all updates are reparable
@@ -31,19 +29,17 @@ type Semidirect2DataI interface {
 
 type NonMainOp struct {
 	Op              communication.Operation
-	HigherTimestamp communication.VClock //to stabilize Op, all operations with lower timestamp must be stable when Op is applied to the state
+	HigherTimestamp []communication.Operation //to stabilize Op, all operations with lower timestamp must be stable when Op is applied to the state
 }
 
 type Semidirect2CRDT struct {
-	Id                  string
-	Data                Semidirect2DataI                             //data interface
-	Unstable_operations graph.Graph[string, communication.Operation] //all aplied updates
-	Stable_operations   []communication.Operation
-	NonMain_operations  []NonMainOp
-	Unstable_st         any
-	N_Ops               uint64
-
-	higherTimestamp communication.VClock
+	Id                    string
+	Data                  Semidirect2DataI          //data interface
+	Unstable_operations   []communication.Operation //all aplied updates
+	StableMain_operations []communication.Operation
+	NonMain_operations    []NonMainOp
+	Unstable_st           any
+	N_Ops                 uint64
 
 	effectLock *sync.RWMutex
 }
@@ -53,13 +49,11 @@ func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI) *Semidirect
 	c := Semidirect2CRDT{
 		Id:                  id,
 		Data:                data,
-		Unstable_operations: graph.New(opHash2, graph.Directed(), graph.Acyclic()),
+		Unstable_operations: []communication.Operation{},
 		NonMain_operations:  []NonMainOp{},
 		Unstable_st:         state,
 		N_Ops:               0,
 		effectLock:          new(sync.RWMutex),
-
-		higherTimestamp: communication.VClock{},
 	}
 
 	return &c
@@ -69,38 +63,33 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 	r.effectLock.Lock()
 	defer r.effectLock.Unlock()
 
-	r.higherTimestamp = op.Version
-
 	if r.Data.MainOp() != op.Type {
-		r.NonMain_operations = append(r.NonMain_operations, NonMainOp{op, communication.VClock{}})
+		r.NonMain_operations = append(r.NonMain_operations, NonMainOp{op, []communication.Operation{}})
 		r.N_Ops++
 		return
 	}
 
-	t, err := graph.StableTopologicalSort(r.Unstable_operations, less)
-	if err != nil {
-		panic(err)
-	}
-
 	op = r.repairCausal(op)
 
-	newOp := r.repair(op, t)
+	newOp := r.repair(op)
 	r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{newOp})
 
-	//Add vertex
-	r.Unstable_operations.AddVertex(op)
-
-	//insert operation on log
-	adjancecyMap, _ := r.Unstable_operations.AdjacencyMap()
-	for vertexHash, _ := range adjancecyMap {
-		vertex, _ := r.Unstable_operations.Vertex(vertexHash)
-		if op.Equals(vertex) {
-			continue
+	//add operation to unstable operations
+	//iterate starting from the end over unstable operations to find the correct position to insert the new operation
+	if len(r.Unstable_operations) == 0 {
+		r.Unstable_operations = append(r.Unstable_operations, newOp)
+	} else {
+		inserted := false
+		for i := len(r.Unstable_operations) - 1; i >= 0; i-- {
+			//if it respects arbitration order, insert it
+			if _, ok := r.Data.ArbitrationOrder(r.Unstable_operations[i], newOp); ok {
+				r.Unstable_operations = append(r.Unstable_operations[:i+1], append([]communication.Operation{newOp}, r.Unstable_operations[i+1:]...)...)
+				inserted = true
+				break
+			}
 		}
-		if commutative, ordered := r.Data.ArbitrationOrder(vertex, op); !commutative && ordered {
-			r.Unstable_operations.AddEdge(opHash2(vertex), opHash2(op))
-		} else if !commutative && !ordered {
-			r.Unstable_operations.AddEdge(opHash2(op), opHash2(vertex))
+		if !inserted {
+			r.Unstable_operations = append([]communication.Operation{newOp}, r.Unstable_operations...)
 		}
 	}
 
@@ -111,8 +100,12 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	r.effectLock.Lock()
 	defer r.effectLock.Unlock()
 
+	r.StableMain_operations = append(r.StableMain_operations, op)
+
 	for i, v := range r.NonMain_operations {
-		if v.HigherTimestamp.Equal(r.higherTimestamp) {
+		//log.Println("COMPARING", v.HigherTimestamp, op.Version)
+		if r.becameStable(v.HigherTimestamp) {
+			log.Println("REMOVEDDDDDDDDDDDDDDD--------------------------------------------------------->")
 			r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
 			break
 		}
@@ -123,7 +116,7 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 		for i, v := range r.NonMain_operations {
 			if v.Op.Equals(op) {
 				//r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
-				r.NonMain_operations[i].HigherTimestamp = r.higherTimestamp
+				r.NonMain_operations[i].HigherTimestamp = r.getGreatestOps()
 				r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
 				break
 			}
@@ -131,33 +124,26 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 		return
 	}
 
-	//remove vertex of the operation and all its edges
-	r.Stable_operations = append(r.Stable_operations, op)
-	t, err := graph.StableTopologicalSort(r.Unstable_operations, less)
-	if err != nil {
-		panic(err)
-	}
-	io := r.indexOf(t, op)
-
-	if !r.prefixStable(t, io) {
+	if r.Data.MainOp() != op.Type {
 		return
 	}
 
-	//remove all edges that have the operation as target or source
-	adjacencyMap, _ := r.Unstable_operations.AdjacencyMap()
-	for _, edges := range adjacencyMap {
-		for _, edge := range edges {
-			if edge.Source == opHash2(op) || edge.Target == opHash2(op) {
-				r.Unstable_operations.RemoveEdge(edge.Source, edge.Target)
-			}
-		}
+	io := r.indexOf(op)
+
+	if !r.prefixStable(io) {
+		return
 	}
 
-	r.Unstable_operations.RemoveVertex(opHash2(op))
+	//remove operation from unstable operations
+	r.Unstable_operations = append(r.Unstable_operations[:io], r.Unstable_operations[io+1:]...)
+
 }
 
 func (r *Semidirect2CRDT) Query() (any, any) {
 	//apply all non main operations
+	r.effectLock.Lock()
+	defer r.effectLock.Unlock()
+
 	nonMainOp := r.getNonMainOperations()
 	query_st := r.Data.Apply(r.Unstable_st, nonMainOp)
 	return query_st, nonMainOp
@@ -167,11 +153,10 @@ func (r *Semidirect2CRDT) NumOps() uint64 {
 	return r.N_Ops
 }
 
-func (r *Semidirect2CRDT) repair(op communication.Operation, ops []string) communication.Operation {
+func (r *Semidirect2CRDT) repair(op communication.Operation) communication.Operation {
 	//find operations that is concurrent with op
 
-	for _, v := range ops {
-		o, _ := r.Unstable_operations.Vertex(v)
+	for _, o := range r.Unstable_operations {
 		if o.Version.Compare(op.Version) == communication.Concurrent {
 			op = r.Data.Repair(o, op)
 		}
@@ -190,17 +175,10 @@ func (r *Semidirect2CRDT) repairCausal(op communication.Operation) communication
 	return op
 }
 
-func less(a, b string) bool {
-	n1, _ := strconv.Atoi(a)
-	n2, _ := strconv.Atoi(b)
-	return n1 < n2
-}
-
 // check if prefix of the operations is stable (all operations of the prefix are in stable_operations)
-func (r Semidirect2CRDT) prefixStable(operations []string, index int) bool {
-	for _, vertexHash := range operations[:index+1] {
-		o, _ := r.Unstable_operations.Vertex(vertexHash)
-		if !contains(r.Stable_operations, o) {
+func (r Semidirect2CRDT) prefixStable(index int) bool {
+	for _, o := range r.Unstable_operations[:index+1] {
+		if !contains(r.StableMain_operations, o) {
 			return false
 		}
 	}
@@ -208,18 +186,13 @@ func (r Semidirect2CRDT) prefixStable(operations []string, index int) bool {
 }
 
 // gets index of operation in array
-func (r Semidirect2CRDT) indexOf(operations []string, op communication.Operation) int {
-	for i, vertexHash := range operations {
-		o, _ := r.Unstable_operations.Vertex(vertexHash)
+func (r Semidirect2CRDT) indexOf(op communication.Operation) int {
+	for i, o := range r.Unstable_operations {
 		if op.Equals(o) {
 			return i
 		}
 	}
 	return -1
-}
-
-func opHash2(op communication.Operation) string {
-	return strconv.FormatUint(op.Version.Sum(), 10) + op.OriginID
 }
 
 func (r Semidirect2CRDT) getNonMainOperations() []communication.Operation {
@@ -230,4 +203,34 @@ func (r Semidirect2CRDT) getNonMainOperations() []communication.Operation {
 		}
 	}
 	return nonMainOps
+}
+
+func (r Semidirect2CRDT) getGreatestOps() []communication.Operation {
+
+	if len(r.Unstable_operations) == 0 {
+		return []communication.Operation{}
+	}
+
+	//get greatest operations
+	greatestOps := []communication.Operation{}
+	greatestOp := r.Unstable_operations[len(r.Unstable_operations)-1]
+	greatestOps = append(greatestOps, greatestOp)
+
+	for i := len(r.Unstable_operations) - 2; i >= 0; i-- {
+		//if its concurrent, add it to the list
+		if r.Unstable_operations[i].Version.Compare(greatestOp.Version) == communication.Concurrent {
+			greatestOps = append(greatestOps, r.Unstable_operations[i])
+		}
+	}
+
+	return greatestOps
+}
+
+func (r Semidirect2CRDT) becameStable(ops []communication.Operation) bool {
+	for _, op := range ops {
+		if !contains(r.StableMain_operations, op) {
+			return false
+		}
+	}
+	return false
 }

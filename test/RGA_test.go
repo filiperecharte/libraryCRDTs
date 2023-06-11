@@ -116,18 +116,17 @@ func TestRGA(t *testing.T) {
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 		operations_rep0 := 30
 		operations_rep1 := 30
-		operations_rep2 := 30
 
-		operations := []int{operations_rep0, operations_rep1, operations_rep2}
+		operations := []int{operations_rep0, operations_rep1}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(90)               //number of operations
+		vals[2] = reflect.ValueOf(60)               //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1,
+		MaxCount: 100,
 		Values:   gen,
 	}
 
@@ -148,7 +147,7 @@ func generateRandomVertex(r replica.Replica) datatypes.Vertex {
 	}
 
 	choices := make([]randutil.Choice, 0, 2)
-	choices = append(choices, randutil.Choice{Weight: 1, Item: rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]})
+	choices = append(choices, randutil.Choice{Weight: 2, Item: rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]})
 	choices = append(choices, randutil.Choice{
 		Weight: 5,
 		Item:   v,

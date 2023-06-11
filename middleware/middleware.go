@@ -248,7 +248,7 @@ func (mw *Middleware) stabilize(StableDots communication.VClock) {
 	}
 }
 
-// Calculating the Stable vector every time Observed is updated can ecome costly, specially when dealing with large groups.
+// Calculating the Stable vector every time Observed is updated can become costly, specially when dealing with large groups.
 // To overcome this problem the Min vector was created, by checking if the sender’s id is in it.
 // If it is not, then the minimums of the columns are the same and Min has not changed.
 func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
@@ -256,23 +256,23 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 
 	mw.Min.Lock()
 	for keyMin, _ := range mw.Min.m {
-		if keyMin == j {
-			min := mw.Observed.GetTick(j, keyMin)
-			minRow := keyMin
+		//if keyMin == j {
+		min := mw.Observed.GetTick(j, keyMin)
+		minRow := keyMin
 
-			obs := mw.Observed.GetMap()
+		obs := mw.Observed.GetMap()
 
-			mw.Observed.Lock()
-			for keyObs, _ := range obs {
-				if mw.Observed.m[keyObs].FindTicks(keyMin) < min {
-					min = mw.Observed.m[keyObs].FindTicks(keyMin)
-					minRow = keyObs
-				}
+		mw.Observed.Lock()
+		for keyObs, _ := range obs {
+			if mw.Observed.m[keyObs].FindTicks(keyMin) < min {
+				min = mw.Observed.m[keyObs].FindTicks(keyMin)
+				minRow = keyObs
 			}
-			mw.Observed.Unlock()
-			newStableVersion.Set(keyMin, min)
-			mw.Min.m[keyMin] = minRow
 		}
+		mw.Observed.Unlock()
+		newStableVersion.Set(keyMin, min)
+		mw.Min.m[keyMin] = minRow
+		//}
 	}
 	mw.Min.Unlock()
 	return newStableVersion

@@ -68,9 +68,7 @@ func (r *Replica) Quit() {
 
 // Broadcasts a message by incrementing the replica's own entry in the version vector
 // and enqueuing the message with the updated version vector to the middleware process.
-func (r *Replica) TCBcast(operation communication.Operation) {
-	msg := communication.NewMessage(communication.DLV, operation.Type, operation.Value, operation.Version, operation.OriginID)
-	r.Crdt.Effect(msg.Operation)
+func (r *Replica) TCBcast(msg communication.Message) {
 	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 	r.middleware.Tcbcast <- msg
 }
@@ -105,9 +103,11 @@ func (r *Replica) Prepare(operationType string, operationValue any) {
 	r.prepareLock.Lock()
 	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
-	r.prepareLock.Unlock()
 	op := communication.Operation{Type: operationType, Value: operationValue, Version: vv, OriginID: r.id}
-	r.TCBcast(op)
+	msg := communication.NewMessage(communication.DLV, op.Type, op.Value, op.Version, op.OriginID)
+	r.Crdt.Effect(msg.Operation)
+	r.prepareLock.Unlock()
+	r.TCBcast(msg)
 }
 
 func (r *Replica) GetID() string {

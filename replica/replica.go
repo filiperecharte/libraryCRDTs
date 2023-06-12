@@ -99,7 +99,7 @@ func (r *Replica) dequeue() {
 
 // Update made by a client to a replica that receives the operation to be applied to the CRDT
 // sends the operation to middleware for broadcast
-func (r *Replica) Prepare(operationType string, operationValue any) {
+func (r *Replica) Prepare(operationType string, operationValue any) communication.Operation {
 	r.prepareLock.Lock()
 	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
@@ -108,6 +108,8 @@ func (r *Replica) Prepare(operationType string, operationValue any) {
 	r.Crdt.Effect(msg.Operation)
 	r.prepareLock.Unlock()
 	r.TCBcast(msg)
+
+	return op //for testing purposes
 }
 
 func (r *Replica) GetID() string {

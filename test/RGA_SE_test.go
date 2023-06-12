@@ -1,13 +1,12 @@
 package test
 
 import (
-	"encoding/csv"
 	"library/packages/communication"
 	datatypes "library/packages/datatypes/semidirect"
 	"library/packages/replica"
+	"library/packages/utils"
 	"log"
 	"math/rand"
-	"os"
 	"reflect"
 	"strconv"
 	"sync"
@@ -15,24 +14,13 @@ import (
 	"testing/quick"
 	"time"
 
-	"github.com/jmcvetta/randutil"
+	"github.com/dominikbraun/graph"
 )
 
-// variable with the alphabet to generate random strings
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func TestRGA(t *testing.T) {
+func TestSERGA(t *testing.T) {
 
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {
-
-		file, err := os.Create("results/RGA" + "-" + strconv.Itoa(numReplicas) + "-" + strconv.Itoa(numOperations) + ".csv")
-		if err != nil {
-			log.Fatal(err)
-		}
-		w := csv.NewWriter(file)
-
-		w.Write([]string{"Time"})
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -43,15 +31,17 @@ func TestRGA(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i], &w)
+			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i], nil)
 		}
+
+		operationsGraph := graph.New(opHash, graph.Directed(), graph.Acyclic())
 
 		// Start a goroutine for each replica
 		var wg sync.WaitGroup
 		for i := range replicas {
 			wg.Add(1)
 
-			go func(r *replica.Replica, operations int) {
+			go func(r *replica.Replica, operations int, g *graph.Graph[string, communication.Operation]) {
 				defer wg.Done()
 				// Perform random number of add operations with random delays
 
@@ -79,11 +69,18 @@ func TestRGA(t *testing.T) {
 						V:     v,
 					}
 
-					r.Prepare(OPType, OPValue)
+					op := r.Prepare(OPType, OPValue)
 
+					err := (*g).AddVertex(op)
+					if err != nil {
+						panic(err)
+					}
+					addOp(op, g)
+
+					time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
 				}
 
-			}(replicas[i], operations[i])
+			}(replicas[i], operations[i], &operationsGraph)
 		}
 
 		// Wait for all goroutines to finish
@@ -102,9 +99,6 @@ func TestRGA(t *testing.T) {
 			}
 		}
 
-		w.Flush()
-		file.Close()
-
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
 			st, _ := replicas[i].Crdt.Query()
@@ -121,7 +115,37 @@ func TestRGA(t *testing.T) {
 			}
 		}
 		log.Println("All replicas have the same state")
-		return true
+
+		//Check that the state is consistent with a sequential execution
+		rga := datatypes.RGA{}
+		allTPs := utils.GetAllTopologicalOrders(&operationsGraph)
+
+		for _, tp := range allTPs {
+
+			state := []datatypes.Vertex{
+				{
+					Timestamp: communication.NewVClockFromMap(map[string]uint64{}),
+					Value:     "",
+					OriginID:  "0",
+				},
+			}
+
+			for _, vertex := range tp {
+				//apply operations in topological order
+				op, _ := operationsGraph.Vertex(vertex)
+				state = rga.Apply(state, []communication.Operation{op}).([]datatypes.Vertex)
+			}
+
+			//check that the state is the same as the state of the replicas
+			st, _ := replicas[0].Crdt.Query()
+			if datatypes.RGAEqual(state, st.([]datatypes.Vertex)) {
+				log.Println("State has a sequential execution")
+				return true
+			}
+		}
+
+		t.Error("STATE NOT EQUAL TO CRDT STATE")
+		return false
 	}
 
 	// Define generator to limit input size
@@ -149,27 +173,25 @@ func TestRGA(t *testing.T) {
 	}
 }
 
-func generateRandomVertex(r replica.Replica) datatypes.Vertex {
-	rgaState, rgaDeletedState := r.Crdt.Query()
+// add operations to graph
+func addOp(op communication.Operation, graph *graph.Graph[string, communication.Operation]) {
+	(*graph).AddVertex(op)
 
-	v := datatypes.Vertex{}
-	if len(rgaDeletedState.([]communication.Operation)) != 0 {
-		v = rgaDeletedState.([]communication.Operation)[rand.Intn(len(rgaDeletedState.([]communication.Operation)))].Value.(datatypes.RGAOpValue).V
-	} else {
-		v = rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
+	adjacencyMap, _ := (*graph).AdjacencyMap()
+	for vertexHash := range adjacencyMap {
+		vertex, _ := (*graph).Vertex(vertexHash)
+		if op.Equals(vertex) {
+			continue
+		}
+		cmp := op.Version.Compare(vertex.Version)
+		opHash := opHash(op)
+
+		if cmp == communication.Ancestor {
+			(*graph).AddEdge(vertexHash, opHash)
+		}
 	}
+}
 
-	choices := make([]randutil.Choice, 0, 2)
-	choices = append(choices, randutil.Choice{Weight: 2, Item: rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]})
-	choices = append(choices, randutil.Choice{
-		Weight: 5,
-		Item:   v,
-	})
-
-	result, err := randutil.WeightedChoice(choices)
-	if err != nil {
-		panic(err)
-	}
-
-	return result.Item.(datatypes.Vertex)
+func opHash(op communication.Operation) string {
+	return op.OriginID + strconv.FormatUint(op.Version.Sum(), 10)
 }

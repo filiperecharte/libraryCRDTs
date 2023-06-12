@@ -1,9 +1,9 @@
 package crdt
 
 import (
+	"encoding/csv"
 	"library/packages/communication"
 	"library/packages/utils"
-	"log"
 	"sync"
 )
 
@@ -41,12 +41,13 @@ type Semidirect2CRDT struct {
 	NonMain_operations    []NonMainOp
 	Unstable_st           any
 	N_Ops                 uint64
+	writer                **csv.Writer
 
 	effectLock *sync.RWMutex
 }
 
 // initialize semidirectcrdt
-func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI) *Semidirect2CRDT {
+func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI, w **csv.Writer) *Semidirect2CRDT {
 	c := Semidirect2CRDT{
 		Id:                  id,
 		Data:                data,
@@ -55,6 +56,7 @@ func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI) *Semidirect
 		Unstable_st:         state,
 		N_Ops:               0,
 		effectLock:          new(sync.RWMutex),
+		writer:              w,
 	}
 
 	return &c
@@ -62,6 +64,7 @@ func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI) *Semidirect
 
 func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 	r.effectLock.Lock()
+	defer utils.Timer(r.writer)()
 	defer r.effectLock.Unlock()
 
 	if r.Data.MainOp() != op.Type {
@@ -138,7 +141,6 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 
 	//remove operation from unstable operations
 	r.Unstable_operations = append(r.Unstable_operations[:io], r.Unstable_operations[io+1:]...)
-
 }
 
 func (r *Semidirect2CRDT) Query() (any, any) {
@@ -200,7 +202,7 @@ func (r Semidirect2CRDT) indexOf(op communication.Operation) int {
 func (r Semidirect2CRDT) getNonMainOperations() []communication.Operation {
 	nonMainOps := []communication.Operation{}
 	for _, op := range r.NonMain_operations {
-			nonMainOps = append(nonMainOps, op.Op)
+		nonMainOps = append(nonMainOps, op.Op)
 	}
 	return nonMainOps
 }
@@ -208,7 +210,6 @@ func (r Semidirect2CRDT) getNonMainOperations() []communication.Operation {
 func (r Semidirect2CRDT) getGreatestOps() []communication.Operation {
 
 	if len(r.Unstable_operations) == 0 {
-		log.Println(r.Id, "GREATEST OPS empty")
 		return []communication.Operation{}
 	}
 

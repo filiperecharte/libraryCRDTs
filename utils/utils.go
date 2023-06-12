@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"encoding/csv"
 	"library/packages/communication"
+	"strconv"
+	"time"
 
 	"github.com/dominikbraun/graph"
 )
@@ -115,4 +118,14 @@ func GetAllTopologicalOrders(graph *graph.Graph[string, communication.Operation]
 	findAllTopologicalOrders(graph, path, discovered, inDegrees, N, &orders)
 
 	return orders
+}
+
+/*------------------------------------- TIME MEASURE ----------------------------------------*/
+
+func Timer(w **csv.Writer) func() {
+	start := time.Now()
+	return func() {
+		row := []string{strconv.FormatInt(time.Since(start).Microseconds(), 10)}
+		(*w).Write(row)
+	}
 }

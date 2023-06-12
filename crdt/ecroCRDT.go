@@ -2,7 +2,6 @@ package crdt
 
 import (
 	"library/packages/communication"
-	"library/packages/utils"
 	"strconv"
 	"sync"
 
@@ -27,7 +26,7 @@ type EcroCRDT struct {
 	Data                EcroDataI //data interface
 	Stable_st           any       // stable state
 	Unstable_operations graph.Graph[string, communication.Operation]
-	Stable_operations   []communication.Operation
+	Stable_operation    communication.Operation
 	Unstable_st         any //most recent state
 	N_Ops               uint64
 
@@ -65,7 +64,7 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 	r.StabilizeLock.Lock()
 	defer r.StabilizeLock.Unlock()
 	//remove vertex of the operation and all its edges
-	r.Stable_operations = append(r.Stable_operations, op)
+	r.Stable_operation = op
 	t := r.topologicalSort()
 	io := indexOf(t, op)
 
@@ -87,7 +86,6 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 
 	r.Stable_st = r.Data.Apply(r.Stable_st, t[:io+1])
 	r.Unstable_st = r.Data.Apply(r.Stable_st, t[io+1:])
-	r.Stable_operations = append(r.Stable_operations, t[:io+1]...)
 }
 
 func (r *EcroCRDT) Query() (any, any) {
@@ -220,7 +218,7 @@ func indexOf(operations []communication.Operation, op communication.Operation) i
 // check if prefix of the operations is stable (all operations of the prefix are in stable_operations)
 func (r EcroCRDT) prefixStable(operations []communication.Operation, index int) bool {
 	for _, o := range operations[:index+1] {
-		if !utils.Contains(r.Stable_operations, o) {
+		if r.Stable_operation.Version.Compare(o.Version) != communication.Descendant {
 			return false
 		}
 	}

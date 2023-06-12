@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"library/packages/communication"
 	"library/packages/utils"
+	"log"
 	"sync"
 )
 
@@ -34,14 +35,14 @@ type NonMainOp struct {
 }
 
 type Semidirect2CRDT struct {
-	Id                    string
-	Data                  Semidirect2DataI          //data interface
-	Unstable_operations   []communication.Operation //all aplied updates
-	StableMain_operations []communication.Operation
-	NonMain_operations    []NonMainOp
-	Unstable_st           any
-	N_Ops                 uint64
-	writer                **csv.Writer
+	Id                   string
+	Data                 Semidirect2DataI          //data interface
+	Unstable_operations  []communication.Operation //all aplied updates
+	StableMain_operation communication.Operation
+	NonMain_operations   []NonMainOp
+	Unstable_st          any
+	N_Ops                uint64
+	writer               **csv.Writer
 
 	effectLock *sync.RWMutex
 }
@@ -105,12 +106,13 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	defer r.effectLock.Unlock()
 
 	if r.Data.MainOp() == op.Type {
-		r.StableMain_operations = append(r.StableMain_operations, op)
+		r.StableMain_operation = op
 	}
 
 	for i, v := range r.NonMain_operations {
 		//log.Println("COMPARING", v.HigherTimestamp, op.Version)
 		if r.becameStable(v.HigherTimestamp) {
+			log.Println(r.Id, "REMOVED", r.StableMain_operation, " ---------------------------------------------------------------->", v.Op, v.HigherTimestamp)
 			r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
 			break
 		}
@@ -182,7 +184,7 @@ func (r *Semidirect2CRDT) repairCausal(op communication.Operation) communication
 // check if prefix of the operations is stable (all operations of the prefix are in stable_operations)
 func (r Semidirect2CRDT) prefixStable(index int) bool {
 	for _, o := range r.Unstable_operations[:index+1] {
-		if !utils.Contains(r.StableMain_operations, o) {
+		if r.StableMain_operation.Version.Compare(o.Version) != communication.Descendant {
 			return false
 		}
 	}
@@ -234,7 +236,7 @@ func (r Semidirect2CRDT) becameStable(ops []communication.Operation) bool {
 	}
 
 	for _, op := range ops {
-		if !utils.Contains(r.StableMain_operations, op) {
+		if r.StableMain_operation.Version.Compare(op.Version) != communication.Descendant {
 			return false
 		}
 	}

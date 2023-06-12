@@ -26,7 +26,7 @@ func TestRGA(t *testing.T) {
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {
 
-		file, err := os.Create("results/RGA" + "-" + strconv.Itoa(numReplicas) + "-" + strconv.Itoa(numOperations) + ".csv")
+		file, err := os.Create("results/RGA2" + "-" + strconv.Itoa(numReplicas) + "-" + strconv.Itoa(numOperations) + ".csv")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -128,18 +128,17 @@ func TestRGA(t *testing.T) {
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 		operations_rep0 := 5
 		operations_rep1 := 5
-		operations_rep2 := 5
 
-		operations := []int{operations_rep0, operations_rep1, operations_rep2}
+		operations := []int{operations_rep0, operations_rep1}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(15)              //number of operations
+		vals[2] = reflect.ValueOf(10)              //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1,
+		MaxCount: 100,
 		Values:   gen,
 	}
 

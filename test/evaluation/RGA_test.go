@@ -7,6 +7,7 @@ import (
 	"library/packages/replica"
 	"log"
 	"math/rand"
+	_ "net/http/pprof"
 	"os"
 	"reflect"
 	"strconv"
@@ -22,11 +23,9 @@ import (
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func TestRGA(t *testing.T) {
-
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {
-
-		file, err := os.Create("results/RGA2" + "-" + strconv.Itoa(numReplicas) + "-" + strconv.Itoa(numOperations) + ".csv")
+		file, err := os.Create("RGA2" + "-" + strconv.Itoa(numReplicas) + "-" + strconv.Itoa(numOperations) + ".csv")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -60,7 +59,7 @@ func TestRGA(t *testing.T) {
 					v := generateRandomVertex(*r)
 
 					//choose random leter to add
-					value := letters[rand.Intn(len(letters))]
+					value := letters[1]
 
 					//choose randomly if it is an add or remove operation
 					OPType := "Add"
@@ -80,6 +79,8 @@ func TestRGA(t *testing.T) {
 					}
 
 					r.Prepare(OPType, OPValue)
+
+					time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 
 				}
 
@@ -126,19 +127,19 @@ func TestRGA(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		operations_rep0 := 5
-		operations_rep1 := 5
+		operations_rep0 := 250
+		operations_rep1 := 250
 
 		operations := []int{operations_rep0, operations_rep1}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(10)              //number of operations
+		vals[2] = reflect.ValueOf(500)             //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 100,
+		MaxCount: 1,
 		Values:   gen,
 	}
 

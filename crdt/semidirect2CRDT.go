@@ -4,7 +4,7 @@ import (
 	"encoding/csv"
 	"library/packages/communication"
 	"library/packages/utils"
-	"log"
+	"net/http"
 	"sync"
 )
 
@@ -49,6 +49,10 @@ type Semidirect2CRDT struct {
 
 // initialize semidirectcrdt
 func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI, w **csv.Writer) *Semidirect2CRDT {
+	go func() {
+		_ = http.ListenAndServe("0.0.0.0:8081", nil)
+	}()
+
 	c := Semidirect2CRDT{
 		Id:                  id,
 		Data:                data,
@@ -65,7 +69,7 @@ func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI, w **csv.Wri
 
 func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 	r.effectLock.Lock()
-	defer utils.Timer(r.writer)()
+	defer utils.Timer("effect", r.writer)()
 	defer r.effectLock.Unlock()
 
 	if r.Data.MainOp() != op.Type {
@@ -103,6 +107,7 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 
 func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	r.effectLock.Lock()
+	defer utils.Timer("stabilize", r.writer)()
 	defer r.effectLock.Unlock()
 
 	if r.Data.MainOp() == op.Type {
@@ -112,7 +117,6 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	for i, v := range r.NonMain_operations {
 		//log.Println("COMPARING", v.HigherTimestamp, op.Version)
 		if r.becameStable(v.HigherTimestamp) {
-			log.Println(r.Id, "REMOVED", r.StableMain_operation, " ---------------------------------------------------------------->", v.Op, v.HigherTimestamp)
 			r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
 			break
 		}

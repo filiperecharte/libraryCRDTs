@@ -138,6 +138,7 @@ func (r RGA) MainOp() string {
 
 // initialize RGA
 func NewRGAReplica(id string, channels map[string]chan any, delay int, w **csv.Writer) *replica.Replica {
+
 	r := crdt.NewSemidirect2CRDT(id, []Vertex{{communication.NewVClockFromMap(map[string]uint64{}), "", id}}, RGA{id}, w)
 
 	return replica.NewReplica(id, r, channels, delay)

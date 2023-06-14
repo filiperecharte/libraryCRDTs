@@ -70,13 +70,13 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 		DeliverCausal:    make(chan communication.Message),
 		Observed:         InitVClocks(ids),
 		StableVersion:    communication.InitVClock(ids),
-		SMap:             SMap{RWMutex: new(sync.RWMutex), m: make(map[StableDotKey]StableDotValue)},
+		SMap:             SMap{RWMutex: new(sync.RWMutex), m: map[StableDotKey]StableDotValue{}},
 		Min:              Min{RWMutex: new(sync.RWMutex), m: utils.InitMin(ids)},
 		Ctr:              0,
 
 		Rand:            rand.New(rand.NewSource(time.Now().UnixNano())),
 		Delay:           delay,
-		MessagesDelay:   make([]MessageDelay, 0),
+		MessagesDelay:   []MessageDelay{},
 		MessageDelayCtr: 0,
 
 		quit: make(chan bool),

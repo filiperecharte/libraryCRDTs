@@ -122,10 +122,10 @@ func GetAllTopologicalOrders(graph *graph.Graph[string, communication.Operation]
 
 /*------------------------------------- TIME MEASURE ----------------------------------------*/
 
-func Timer(w **csv.Writer) func() {
+func Timer(name string, w **csv.Writer) func() {
 	start := time.Now()
 	return func() {
-		row := []string{strconv.FormatInt(time.Since(start).Microseconds(), 10)}
+		row := []string{name, strconv.FormatInt(time.Since(start).Nanoseconds(), 10)}
 		(*w).Write(row)
 	}
 }

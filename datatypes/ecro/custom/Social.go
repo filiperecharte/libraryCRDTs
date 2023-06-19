@@ -15,7 +15,7 @@ type SocialOpValue struct {
 
 type SocialState struct {
 	Friends    [5]mapset.Set[any] //friends[id] = set of friends of id
-	Requesters [5]mapset.Set[any] //requests[id] = set of requests made by id
+	Requesters [5]mapset.Set[any] //requesters[id] = set of requests made to id
 }
 
 type Social struct {

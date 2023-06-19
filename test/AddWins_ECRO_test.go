@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestAddWins(t *testing.T) {
+func TestAddWinsECRO(t *testing.T) {
 
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {

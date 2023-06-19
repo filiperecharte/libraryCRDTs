@@ -100,7 +100,7 @@ func (r *EcroCRDT) NumOps() uint64 {
 
 // add edges to graph and return if its descendant of all operations or not
 func (r *EcroCRDT) addEdges(op communication.Operation) bool {
-	isDescendant := true
+	isSafe := true
 	adjacencyMap, _ := r.Unstable_operations.AdjacencyMap()
 	for vertexHash := range adjacencyMap {
 		vertex, _ := r.Unstable_operations.Vertex(vertexHash)
@@ -111,9 +111,10 @@ func (r *EcroCRDT) addEdges(op communication.Operation) bool {
 		opHash := opHash(op)
 
 		if cmp == communication.Ancestor && !r.Data.Commutes(op, vertex) {
+			isSafe = false
 			r.Unstable_operations.AddEdge(vertexHash, opHash, graph.EdgeAttributes(map[string]string{"label": "hb", "id": vertexHash + opHash}))
 		} else if cmp == communication.Concurrent && !r.Data.Commutes(op, vertex) {
-			isDescendant = false
+			isSafe = false
 			if r.Data.Order(op, vertex) {
 				r.Unstable_operations.AddEdge(opHash, vertexHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": opHash + vertexHash}))
 			} else if r.Data.Order(vertex, op) {
@@ -122,7 +123,7 @@ func (r *EcroCRDT) addEdges(op communication.Operation) bool {
 		}
 	}
 
-	return isDescendant
+	return isSafe
 }
 
 // creates hash for operation

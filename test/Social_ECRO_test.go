@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestSocial(t *testing.T) {
+func TestSocialECRO(t *testing.T) {
 
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {

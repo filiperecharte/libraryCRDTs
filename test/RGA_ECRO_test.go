@@ -1,14 +1,12 @@
 package test
 
 import (
-	"encoding/csv"
 	"library/packages/communication"
-	datatypes "library/packages/datatypes/semidirect"
+	datatypes "library/packages/datatypes/ecro"
 	"library/packages/replica"
 	"log"
 	"math/rand"
 	_ "net/http/pprof"
-	"os"
 	"reflect"
 	"strconv"
 	"sync"
@@ -20,19 +18,11 @@ import (
 )
 
 // variable with the alphabet to generate random strings
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var lettersECRO = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func TestRGA(t *testing.T) {
+func TestRGAECRO(t *testing.T) {
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {
-		file, err := os.Create("RGA2" + "-" + strconv.Itoa(numReplicas) + "-" + strconv.Itoa(numOperations) + ".csv")
-		if err != nil {
-			log.Fatal(err)
-		}
-		w := csv.NewWriter(file)
-
-		w.Write([]string{"Time"})
-
 		// Initialize channels
 		channels := map[string]chan interface{}{}
 		for i := 0; i < numReplicas; i++ {
@@ -42,7 +32,7 @@ func TestRGA(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i], &w)
+			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
@@ -56,10 +46,11 @@ func TestRGA(t *testing.T) {
 
 				for j := 0; j < operations; j++ {
 					//choose a predecessor or a vertex to remove randomly from query
-					v := generateRandomVertex(*r)
+					rgaState, _ := r.Crdt.Query()
+					v := rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
 
 					//choose random leter to add
-					value := letters[1]
+					value := lettersECRO[rand.Intn(len(lettersECRO))]
 
 					//choose randomly if it is an add or remove operation
 					OPType := "Add"
@@ -103,9 +94,6 @@ func TestRGA(t *testing.T) {
 			}
 		}
 
-		w.Flush()
-		file.Close()
-
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
 			st, _ := replicas[i].Crdt.Query()
@@ -127,19 +115,20 @@ func TestRGA(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		operations_rep0 := 250
-		operations_rep1 := 250
+		operations_rep0 := 10
+		operations_rep1 := 10
+		operations_rep2 := 10
 
-		operations := []int{operations_rep0, operations_rep1}
+		operations := []int{operations_rep0, operations_rep1, operations_rep2}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(500)             //number of operations
+		vals[2] = reflect.ValueOf(30)               //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1,
+		MaxCount: 100,
 		Values:   gen,
 	}
 
@@ -149,7 +138,7 @@ func TestRGA(t *testing.T) {
 	}
 }
 
-func generateRandomVertex(r replica.Replica) datatypes.Vertex {
+func generateRandomVertexECRO(r replica.Replica) datatypes.Vertex {
 	rgaState, rgaDeletedState := r.Crdt.Query()
 
 	v := datatypes.Vertex{}

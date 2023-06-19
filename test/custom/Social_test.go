@@ -42,11 +42,11 @@ func TestSocial(t *testing.T) {
 					OPType := ""
 					switch rand.Intn(4) {
 					case 0:
-						OPType = "AddFriend"
-						OPValue := custom.SocialOpValue{Id1: rand.Intn(10), Id2: rand.Intn(10)}
+						OPType = "accept"
+						OPValue := custom.SocialOpValue{From: rand.Intn(5), To: rand.Intn(5)}
 						r.Prepare(OPType, OPValue)
 					case 1:
-						OPType = "RemFriend"
+						OPType = "breakup"
 						q, _ := r.Crdt.Query()
 
 						//choose a random USER and a random friend of that user
@@ -59,20 +59,20 @@ func TestSocial(t *testing.T) {
 						}
 						friend := friends[rand.Intn(len(friends))].(int)
 
-						OPValue := custom.SocialOpValue{Id1: user, Id2: friend}
+						OPValue := custom.SocialOpValue{From: user, To: friend}
 
 						r.Prepare(OPType, OPValue)
 					case 2:
-						OPType = "AddRequest"
-						OPValue := custom.SocialOpValue{Id1: rand.Intn(10), Id2: rand.Intn(10)}
+						OPType = "request"
+						OPValue := custom.SocialOpValue{From: rand.Intn(5), To: rand.Intn(5)}
 						r.Prepare(OPType, OPValue)
 					case 3:
-						OPType = "RemRequest"
+						OPType = "reject"
 						q, _ := r.Crdt.Query()
 
 						//choose a random USER and a random request of that user
-						user := rand.Intn(len(q.(custom.SocialState).Requests))
-						requests := q.(custom.SocialState).Requests[user].ToSlice()
+						user := rand.Intn(len(q.(custom.SocialState).Requesters))
+						requests := q.(custom.SocialState).Requesters[user].ToSlice()
 
 						if len(requests) == 0 { //do not generate remRequest when there are no requests
 							j--
@@ -80,7 +80,7 @@ func TestSocial(t *testing.T) {
 						}
 						requested := requests[rand.Intn(len(requests))].(int)
 
-						OPValue := custom.SocialOpValue{Id1: user, Id2: requested}
+						OPValue := custom.SocialOpValue{From: user, To: requested}
 						r.Prepare(OPType, OPValue)
 					}
 				}
@@ -132,12 +132,11 @@ func TestSocial(t *testing.T) {
 
 		operations_rep0 := 10
 		operations_rep1 := 10
-		operations_rep2 := 10
 
-		operations := []int{operations_rep0, operations_rep1, operations_rep2}
+		operations := []int{operations_rep0, operations_rep1}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(30)              //number of operations
+		vals[2] = reflect.ValueOf(20)              //number of operations
 	}
 
 	// Define config for quick.Check

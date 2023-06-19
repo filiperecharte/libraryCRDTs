@@ -85,7 +85,7 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 	r.Unstable_operations.RemoveVertex(opHash(op))
 
 	r.Stable_st = r.Data.Apply(r.Stable_st, t[:io+1])
-	r.Unstable_st = r.Data.Apply(r.Stable_st, t[io+1:])
+	//r.Unstable_st = r.Data.Apply(r.Stable_st, t[io+1:])
 }
 
 func (r *EcroCRDT) Query() (any, any) {
@@ -100,7 +100,7 @@ func (r *EcroCRDT) NumOps() uint64 {
 
 // add edges to graph and return if its descendant of all operations or not
 func (r *EcroCRDT) addEdges(op communication.Operation) bool {
-	isAncestor := true
+	isDescendant := true
 	adjacencyMap, _ := r.Unstable_operations.AdjacencyMap()
 	for vertexHash := range adjacencyMap {
 		vertex, _ := r.Unstable_operations.Vertex(vertexHash)
@@ -110,19 +110,19 @@ func (r *EcroCRDT) addEdges(op communication.Operation) bool {
 		cmp := op.Version.Compare(vertex.Version)
 		opHash := opHash(op)
 
-		if cmp == communication.Ancestor {
+		if cmp == communication.Ancestor && !r.Data.Commutes(op, vertex) {
 			r.Unstable_operations.AddEdge(vertexHash, opHash, graph.EdgeAttributes(map[string]string{"label": "hb", "id": vertexHash + opHash}))
-		} else if cmp == communication.Concurrent {
-			isAncestor = false
-			if r.Data.Order(op, vertex) && !r.Data.Commutes(op, vertex) {
+		} else if cmp == communication.Concurrent && !r.Data.Commutes(op, vertex) {
+			isDescendant = false
+			if r.Data.Order(op, vertex) {
 				r.Unstable_operations.AddEdge(opHash, vertexHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": opHash + vertexHash}))
-			} else if r.Data.Order(vertex, op) && !r.Data.Commutes(vertex, op) {
+			} else if r.Data.Order(vertex, op) {
 				r.Unstable_operations.AddEdge(vertexHash, opHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": vertexHash + opHash}))
 			}
 		}
 	}
 
-	return isAncestor
+	return isDescendant
 }
 
 // creates hash for operation

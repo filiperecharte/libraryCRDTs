@@ -47,6 +47,16 @@ func Contains(operations []communication.Operation, op communication.Operation) 
 	return false
 }
 
+// check if array contains operation
+func ContainsInt(a []int, b int) bool {
+	for _, o := range a {
+		if o == b {
+			return true
+		}
+	}
+	return false
+}
+
 /*------------------------------------- GRAPH ----------------------------------------*/
 
 func findAllTopologicalOrders(graph *graph.Graph[string, communication.Operation], path []string, discovered map[string]bool, inDegrees map[string]int, N int, orders *[][]string) {

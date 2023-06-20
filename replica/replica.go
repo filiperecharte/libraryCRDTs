@@ -85,8 +85,10 @@ func (r *Replica) dequeue() {
 			if msg.Type == communication.DLV {
 				log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 				r.prepareLock.Lock()
-				t := msg.Version.FindTicks(msg.OriginID)
-				r.VersionVector.Set(msg.OriginID, t)
+				if msg.OriginID != r.id {
+					t := msg.Version.FindTicks(msg.OriginID)
+					r.VersionVector.Set(msg.OriginID, t)
+				}
 				r.Crdt.Effect(msg.Operation)
 				r.prepareLock.Unlock()
 			} else if msg.Type == communication.STB {
@@ -100,13 +102,12 @@ func (r *Replica) dequeue() {
 // Update made by a client to a replica that receives the operation to be applied to the CRDT
 // sends the operation to middleware for broadcast
 func (r *Replica) Prepare(operationType string, operationValue any) communication.Operation {
-
 	r.prepareLock.Lock()
 	r.VersionVector.Tick(r.id)
 	vv := r.VersionVector.Copy()
 	op := communication.Operation{Type: operationType, Value: operationValue, Version: vv, OriginID: r.id}
 	msg := communication.NewMessage(communication.DLV, op.Type, op.Value, op.Version, op.OriginID)
-	r.Crdt.Effect(msg.Operation)
+	//r.Crdt.Effect(msg.Operation)
 	r.prepareLock.Unlock()
 
 	r.TCBcast(msg)

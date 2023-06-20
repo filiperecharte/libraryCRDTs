@@ -104,7 +104,7 @@ func (mw *Middleware) dequeue() {
 		default:
 			msg := <-mw.Tcbcast
 			if msg.Version.RWMutex != nil {
-				mw.DeliveredVersion.Tick(mw.replica)
+				//mw.DeliveredVersion.Tick(mw.replica)
 				mw.updatestability(msg)
 				mw.broadcast(msg)
 			}
@@ -116,12 +116,12 @@ func (mw *Middleware) dequeue() {
 // broadcasts a received communication.Message to other middlewares
 // for testing purposes we will just call receive with the ids of the other middlewares
 func (mw *Middleware) broadcast(msg communication.Message) {
-	for id, ch := range mw.channels {
-		if mw.replica != id {
-			go func(newCh chan interface{}) {
-				newCh <- msg
-			}(ch)
-		}
+	for _, ch := range mw.channels {
+		//if mw.replica != id {
+		go func(newCh chan interface{}) {
+			newCh <- msg
+		}(ch)
+		//}
 	}
 }
 

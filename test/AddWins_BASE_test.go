@@ -1,7 +1,7 @@
 package test
 
 import (
-	datatypes "library/packages/datatypes/ecro"
+	"library/packages/crdt"
 	"library/packages/replica"
 	"math/rand"
 	"reflect"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestAddWinsECRO(t *testing.T) {
+func TestAddWinsBASE(t *testing.T) {
 
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {
@@ -26,7 +26,7 @@ func TestAddWinsECRO(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewAddWinsReplica(strconv.Itoa(i), channels, numOperations)
+			replicas[i] = crdt.NewAddWinsBaseReplica(strconv.Itoa(i), channels, numOperations)
 		}
 
 		// Start a goroutine for each replica
@@ -100,7 +100,7 @@ func TestAddWinsECRO(t *testing.T) {
 		operations := []int{operations_rep0, operations_rep1, operations_rep2}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(30)               //number of operations
+		vals[2] = reflect.ValueOf(30)              //number of operations
 	}
 
 	// Define config for quick.Check

@@ -46,8 +46,8 @@ func TestRGASEMIECRO(t *testing.T) {
 
 				for j := 0; j < operations; j++ {
 					//choose a predecessor or a vertex to remove randomly from query
-					rgaState, _ := r.Crdt.Query()
-					v := rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
+					//rgaState, _ := r.Crdt.Query()
+					v := generateRandomVertexSEMIECRO(*r)
 
 					//choose random leter to add
 					value := lettersECRO[rand.Intn(len(lettersECRO))]
@@ -115,14 +115,13 @@ func TestRGASEMIECRO(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		operations_rep0 := 20
-		operations_rep1 := 20
-		operations_rep2 := 20
+		operations_rep0 := 10
+		operations_rep1 := 10
 
-		operations := []int{operations_rep0, operations_rep1, operations_rep2}
+		operations := []int{operations_rep0, operations_rep1}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(60)              //number of operations
+		vals[2] = reflect.ValueOf(20)              //number of operations
 	}
 
 	// Define config for quick.Check

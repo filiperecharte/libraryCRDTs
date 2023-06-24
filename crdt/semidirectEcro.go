@@ -126,16 +126,6 @@ func (r *SemidirectECRO) Effect(op communication.Operation) {
 	}
 	//-------------------------------------------------------
 
-	// if r.hasConcurrentRem(ecroNewOP) {
-	// 	//add operation to unstable state
-	// 	r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{ecroNewOP})
-	// } else {
-	// 	//rollback
-	// 	r.Unstable_st = r.Data.Apply(r.Stable_st, r.topologicalSort())
-	// }
-
-	// ecroRepairedOP := r.repairRight(ecroNewOP)
-
 	if r.respects(ecroNewOP) {
 		//add operation to unstable state
 		r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{ecroNewOP})
@@ -168,35 +158,47 @@ func (r *SemidirectECRO) respects(op communication.Operation) bool {
 }
 
 func (r *SemidirectECRO) Stabilize(op communication.Operation) {
-	/*r.effectLock.Lock()
+	r.effectLock.Lock()
 	defer r.effectLock.Unlock()
 
-	if r.Data.MainOp() == op.Type {
+	if utils.ContainsString(r.Data.SemidirectOps(), op.Type) {
 		r.StableMain_operation = op
 	}
 
-	for i, v := range r.NonMain_operations {
+	adjacencyMap, _ := r.ECROLog.AdjacencyMap()
+	for vertexHash := range adjacencyMap {
+		vertex, _ := r.ECROLog.Vertex(vertexHash)
 		//log.Println("COMPARING", v.HigherTimestamp, op.Version)
-		if r.becameStable(v.HigherTimestamp) {
-			r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
+		if r.becameStable(vertex.HigherTimestamp) {
+
+			//remove all edges that have the operation as target or source
+			adjacencyMap, _ := r.ECROLog.AdjacencyMap()
+			for _, edges := range adjacencyMap {
+				for _, edge := range edges {
+					if edge.Source == vertexHash || edge.Target == vertexHash {
+						r.ECROLog.RemoveEdge(edge.Source, edge.Target)
+					}
+				}
+			}
+
+			//remove vertex of the operation
+			r.ECROLog.RemoveVertex(opHash(op))
 			break
 		}
 	}
 
-	if r.Data.MainOp() != op.Type {
+	if utils.ContainsString(r.Data.ECROOps(), op.Type) {
 		//remove from non main operations
-		for i, v := range r.NonMain_operations {
-			if v.Op.Equals(op) {
+		adjacencyMap, _ := r.ECROLog.AdjacencyMap()
+		for vertexHash := range adjacencyMap {
+			vertex, _ := r.ECROLog.Vertex(vertexHash)
+			if vertex.Op.Equals(op) {
 				//r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
-				r.NonMain_operations[i].HigherTimestamp = r.getGreatestOps()
+				vertex.HigherTimestamp = r.getGreatestOps()
 				r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
 				break
 			}
 		}
-		return
-	}
-
-	if r.Data.MainOp() != op.Type {
 		return
 	}
 
@@ -207,7 +209,7 @@ func (r *SemidirectECRO) Stabilize(op communication.Operation) {
 	}
 
 	//remove operation from unstable operations
-	r.Unstable_operations = append(r.Unstable_operations[:io], r.Unstable_operations[io+1:]...)*/
+	r.SemidirectLog = append(r.SemidirectLog[:io], r.SemidirectLog[io+1:]...)
 }
 
 func (r *SemidirectECRO) Query() (any, any) {

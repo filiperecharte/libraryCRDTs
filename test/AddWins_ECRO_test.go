@@ -26,7 +26,7 @@ func TestAddWinsECRO(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewAddWinsReplica(strconv.Itoa(i), channels, numOperations)
+			replicas[i] = datatypes.NewAddWinsReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
@@ -93,14 +93,14 @@ func TestAddWinsECRO(t *testing.T) {
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		operations_rep0 := 10
-		operations_rep1 := 10
-		operations_rep2 := 10
+		operations_rep0 := 20
+		operations_rep1 := 20
+		operations_rep2 := 20
 
 		operations := []int{operations_rep0, operations_rep1, operations_rep2}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(30)               //number of operations
+		vals[2] = reflect.ValueOf(60)               //number of operations
 	}
 
 	// Define config for quick.Check

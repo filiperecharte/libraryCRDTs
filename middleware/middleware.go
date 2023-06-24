@@ -104,7 +104,7 @@ func (mw *Middleware) dequeue() {
 		default:
 			msg := <-mw.Tcbcast
 			if msg.Version.RWMutex != nil {
-				//mw.DeliveredVersion.Tick(mw.replica)
+				mw.DeliveredVersion.Tick(mw.replica)
 				mw.updatestability(msg)
 				mw.broadcast(msg)
 			}
@@ -116,12 +116,12 @@ func (mw *Middleware) dequeue() {
 // broadcasts a received communication.Message to other middlewares
 // for testing purposes we will just call receive with the ids of the other middlewares
 func (mw *Middleware) broadcast(msg communication.Message) {
-	for _, ch := range mw.channels {
-		//if mw.replica != id {
-		go func(newCh chan interface{}) {
-			newCh <- msg
-		}(ch)
-		//}
+	for id, ch := range mw.channels {
+		if mw.replica != id {
+			go func(newCh chan interface{}) {
+				newCh <- msg
+			}(ch)
+		}
 	}
 }
 
@@ -256,23 +256,23 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 
 	mw.Min.Lock()
 	for keyMin, _ := range mw.Min.m {
-		//if keyMin == j {
-		min := mw.Observed.GetTick(j, keyMin)
-		minRow := keyMin
+		if keyMin == j {
+			min := mw.Observed.GetTick(j, keyMin)
+			minRow := keyMin
 
-		obs := mw.Observed.GetMap()
+			obs := mw.Observed.GetMap()
 
-		mw.Observed.Lock()
-		for keyObs, _ := range obs {
-			if mw.Observed.m[keyObs].FindTicks(keyMin) < min {
-				min = mw.Observed.m[keyObs].FindTicks(keyMin)
-				minRow = keyObs
+			mw.Observed.Lock()
+			for keyObs, _ := range obs {
+				if mw.Observed.m[keyObs].FindTicks(keyMin) < min {
+					min = mw.Observed.m[keyObs].FindTicks(keyMin)
+					minRow = keyObs
+				}
 			}
+			mw.Observed.Unlock()
+			newStableVersion.Set(keyMin, min)
+			mw.Min.m[keyMin] = minRow
 		}
-		mw.Observed.Unlock()
-		newStableVersion.Set(keyMin, min)
-		mw.Min.m[keyMin] = minRow
-		//}
 	}
 	mw.Min.Unlock()
 	return newStableVersion

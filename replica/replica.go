@@ -12,16 +12,13 @@ import (
 
 type CrdtI interface {
 
-	// The TCDeliver callback function is called when a message is ready to be delivered.
-	//effect
+	// Effect callback called when a message is ready to be delivered.
 	Effect(msg communication.Operation)
 
-	// The TCStable callback function is called when a message is set to stable.
-	//stabilize
+	// Stabilize callback function is called when a message is set to stable.
 	Stabilize(msg communication.Operation)
 
 	// Query made by a client to a replica that returns the current state of the CRDT
-	// after applying the unstable operations into the CRDT stable state
 	Query() (any, any)
 
 	// Returns the number of operations applied to the CRDT for testing purposes
@@ -85,10 +82,10 @@ func (r *Replica) dequeue() {
 			if msg.Type == communication.DLV {
 				log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 				r.prepareLock.Lock()
-				if msg.OriginID != r.id {
+				//if msg.OriginID != r.id {
 					t := msg.Version.FindTicks(msg.OriginID)
 					r.VersionVector.Set(msg.OriginID, t)
-				}
+				//}
 				r.Crdt.Effect(msg.Operation)
 				r.prepareLock.Unlock()
 			} else if msg.Type == communication.STB {
@@ -107,7 +104,7 @@ func (r *Replica) Prepare(operationType string, operationValue any) communicatio
 	vv := r.VersionVector.Copy()
 	op := communication.Operation{Type: operationType, Value: operationValue, Version: vv, OriginID: r.id}
 	msg := communication.NewMessage(communication.DLV, op.Type, op.Value, op.Version, op.OriginID)
-	//r.Crdt.Effect(msg.Operation)
+	r.Crdt.Effect(msg.Operation)
 	r.prepareLock.Unlock()
 
 	r.TCBcast(msg)

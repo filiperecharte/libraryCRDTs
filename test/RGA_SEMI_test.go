@@ -1,14 +1,12 @@
 package test
 
 import (
-	"encoding/csv"
 	"library/packages/communication"
 	datatypes "library/packages/datatypes/semidirect"
 	"library/packages/replica"
 	"log"
 	"math/rand"
 	_ "net/http/pprof"
-	"os"
 	"reflect"
 	"strconv"
 	"sync"
@@ -25,13 +23,6 @@ var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 func TestRGASEMI(t *testing.T) {
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {
-		file, err := os.Create("RGA2" + "-" + strconv.Itoa(numReplicas) + "-" + strconv.Itoa(numOperations) + ".csv")
-		if err != nil {
-			log.Fatal(err)
-		}
-		w := csv.NewWriter(file)
-
-		w.Write([]string{"Time"})
 
 		// Initialize channels
 		channels := map[string]chan interface{}{}
@@ -42,7 +33,7 @@ func TestRGASEMI(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i], &w)
+			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
@@ -59,7 +50,7 @@ func TestRGASEMI(t *testing.T) {
 					v := generateRandomVertexSEMI(*r)
 
 					//choose random leter to add
-					value := letters[1]
+					value := letters[rand.Intn(len(letters))]
 
 					//choose randomly if it is an add or remove operation
 					OPType := "Add"
@@ -80,7 +71,7 @@ func TestRGASEMI(t *testing.T) {
 
 					r.Prepare(OPType, OPValue)
 
-					time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+					time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
 
 				}
 
@@ -103,9 +94,6 @@ func TestRGASEMI(t *testing.T) {
 			}
 		}
 
-		w.Flush()
-		file.Close()
-
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
 			st, _ := replicas[i].Crdt.Query()
@@ -127,19 +115,19 @@ func TestRGASEMI(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		operations_rep0 := 250
-		operations_rep1 := 250
+		operations_rep0 := 5
+		operations_rep1 := 5
 
 		operations := []int{operations_rep0, operations_rep1}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(500)             //number of operations
+		vals[2] = reflect.ValueOf(10)              //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1,
+		MaxCount: 1000,
 		Values:   gen,
 	}
 

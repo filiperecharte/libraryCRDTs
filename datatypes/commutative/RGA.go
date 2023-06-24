@@ -4,6 +4,7 @@ import (
 	"library/packages/communication"
 	"library/packages/crdt"
 	"library/packages/replica"
+	"strconv"
 )
 
 type RGAOpValue struct {
@@ -103,7 +104,9 @@ func shift(offset int, newVertex Vertex, vertices []Vertex) int {
 
 	at := vertices[offset]
 
-	if at.OriginID < newVertex.OriginID || at.OriginID == newVertex.OriginID && at.Timestamp.(communication.VClock).Sum() < newVertex.Timestamp.(communication.VClock).Sum() {
+	id1, _ := strconv.Atoi(strconv.Itoa(int(at.Timestamp.(communication.VClock).Sum())) + at.OriginID)
+	id2, _ := strconv.Atoi(strconv.Itoa(int(newVertex.Timestamp.(communication.VClock).Sum())) + newVertex.OriginID)
+	if id1 < id2 {
 		return offset
 	}
 	return shift(offset+1, newVertex, vertices)

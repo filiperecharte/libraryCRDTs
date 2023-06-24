@@ -1,10 +1,8 @@
 package crdt
 
 import (
-	"encoding/csv"
 	"library/packages/communication"
-	"library/packages/utils"
-	"net/http"
+	"log"
 	"sync"
 )
 
@@ -18,7 +16,7 @@ type Semidirect2DataI interface {
 	// ArbitrationOrder returns two booleans
 	// the first tells if the op2 is repairable knowing op1
 	// the second tells if the order op1 > op2 is correct or needs to be swapped
-	ArbitrationOrder(op1 communication.Operation, op2 communication.Operation) (bool, bool)
+	ArbitrationOrder(op1 communication.Operation, op2 communication.Operation, state any) (bool, bool)
 
 	MainOp() string
 
@@ -42,17 +40,12 @@ type Semidirect2CRDT struct {
 	NonMain_operations   []NonMainOp
 	Unstable_st          any
 	N_Ops                uint64
-	writer               **csv.Writer
 
 	effectLock *sync.RWMutex
 }
 
 // initialize semidirectcrdt
-func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI, w **csv.Writer) *Semidirect2CRDT {
-	go func() {
-		_ = http.ListenAndServe("0.0.0.0:8081", nil)
-	}()
-
+func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI) *Semidirect2CRDT {
 	c := Semidirect2CRDT{
 		Id:                  id,
 		Data:                data,
@@ -61,7 +54,6 @@ func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI, w **csv.Wri
 		Unstable_st:         state,
 		N_Ops:               0,
 		effectLock:          new(sync.RWMutex),
-		writer:              w,
 	}
 
 	return &c
@@ -69,7 +61,6 @@ func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI, w **csv.Wri
 
 func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 	r.effectLock.Lock()
-	defer utils.Timer("effect", r.writer)()
 	defer r.effectLock.Unlock()
 
 	if r.Data.MainOp() != op.Type {
@@ -86,19 +77,19 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 	//add operation to unstable operations
 	//iterate starting from the end over unstable operations to find the correct position to insert the new operation
 	if len(r.Unstable_operations) == 0 {
-		r.Unstable_operations = append(r.Unstable_operations, newOp)
+		r.Unstable_operations = append(r.Unstable_operations, op)
 	} else {
 		inserted := false
 		for i := len(r.Unstable_operations) - 1; i >= 0; i-- {
 			//if it respects arbitration order, insert it
-			if _, ok := r.Data.ArbitrationOrder(r.Unstable_operations[i], newOp); ok {
-				r.Unstable_operations = append(r.Unstable_operations[:i+1], append([]communication.Operation{newOp}, r.Unstable_operations[i+1:]...)...)
+			if _, ok := r.Data.ArbitrationOrder(r.Unstable_operations[i], op, r.Unstable_st); ok {
+				r.Unstable_operations = append(r.Unstable_operations[:i+1], append([]communication.Operation{op}, r.Unstable_operations[i+1:]...)...)
 				inserted = true
 				break
 			}
 		}
 		if !inserted {
-			r.Unstable_operations = append([]communication.Operation{newOp}, r.Unstable_operations...)
+			r.Unstable_operations = append([]communication.Operation{op}, r.Unstable_operations...)
 		}
 	}
 
@@ -107,7 +98,6 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 
 func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	r.effectLock.Lock()
-	defer utils.Timer("stabilize", r.writer)()
 	defer r.effectLock.Unlock()
 
 	if r.Data.MainOp() == op.Type {
@@ -117,6 +107,7 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	for i, v := range r.NonMain_operations {
 		//log.Println("COMPARING", v.HigherTimestamp, op.Version)
 		if r.becameStable(v.HigherTimestamp) {
+			log.Println("REMOVING -------------------------------------------------->", v.Op)
 			r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
 			break
 		}
@@ -240,7 +231,7 @@ func (r Semidirect2CRDT) becameStable(ops []communication.Operation) bool {
 	}
 
 	for _, op := range ops {
-		if r.StableMain_operation.Version.Compare(op.Version) != communication.Descendant {
+		if op.Version.Compare(r.StableMain_operation.Version) != communication.Descendant {
 			return false
 		}
 	}

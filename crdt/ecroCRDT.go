@@ -219,7 +219,7 @@ func indexOf(operations []communication.Operation, op communication.Operation) i
 // check if prefix of the operations is stable (all operations of the prefix are in stable_operations)
 func (r EcroCRDT) prefixStable(operations []communication.Operation, index int) bool {
 	for _, o := range operations[:index+1] {
-		if r.Stable_operation.Version.Compare(o.Version) != communication.Descendant {
+		if o.Version.Compare(r.Stable_operation.Version) != communication.Descendant {
 			return false
 		}
 	}

@@ -2,8 +2,6 @@ package datatypes
 
 import (
 	"library/packages/communication"
-	"library/packages/crdt"
-	"library/packages/replica"
 	"strconv"
 )
 
@@ -58,8 +56,39 @@ func (r RGA) Apply(state any, operations []communication.Operation) any {
 	return stCpy
 }
 
-func (r RGA) ArbitrationOrder(op1 communication.Operation, op2 communication.Operation, state any) (bool, bool) {
-	//log.Println(r.Id, "ARBITRATIONORDER", op1, op2)
+func (r RGA) Order(op1 communication.Operation, op2 communication.Operation) bool {
+	id1, _ := strconv.Atoi(strconv.Itoa(int(op1.Version.Sum())) + op1.OriginID)
+	id2, _ := strconv.Atoi(strconv.Itoa(int(op2.Version.Sum())) + op2.OriginID)
+
+	return id1 < id2
+}
+
+func (r RGA) Commutes(op1 communication.Operation, op2 communication.Operation) bool {
+
+	if op1.Type == "Add" && op2.Type == "Add" {
+		return !op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock)) &&
+			!op1.Version.Equal(op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock)) &&
+			!op2.Version.Equal(op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock))
+	}
+
+	if op1.Type == "Rem" && op2.Type == "Add" {
+		return !op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock)) &&
+			!op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(op2.Version)
+	}
+
+	if op1.Type == "Add" && op2.Type == "Rem" {
+		return !op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock)) &&
+			!op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(op1.Version)
+	}
+
+	if op1.Type == "Rem" && op2.Type == "Rem" {
+		return true
+	}
+
+	return false
+}
+
+func (r RGA) ArbitrationOrderMain(op1 communication.Operation, op2 communication.Operation) (bool, bool) {
 
 	id1, _ := strconv.Atoi(strconv.Itoa(int(op1.Version.Sum())) + op1.OriginID)
 	id2, _ := strconv.Atoi(strconv.Itoa(int(op2.Version.Sum())) + op2.OriginID)
@@ -80,7 +109,7 @@ func (r RGA) ArbitrationOrder(op1 communication.Operation, op2 communication.Ope
 	}
 }
 
-func (r RGA) Repair(op1 communication.Operation, op2 communication.Operation, state any) communication.Operation {
+func (r RGA) RepairRight(op1 communication.Operation, op2 communication.Operation, state any) communication.Operation {
 
 	ordered := true
 	//ef1 := r.effectivePos(op1.Value.(RGAOpValue).V, state.([]Vertex))
@@ -112,7 +141,7 @@ func (r RGA) Repair(op1 communication.Operation, op2 communication.Operation, st
 	return op2
 }
 
-func (r RGA) RepairCausal(op1 communication.Operation, op2 communication.Operation) communication.Operation {
+func (r RGA) RepairLeft(op1 communication.Operation, op2 communication.Operation) communication.Operation {
 
 	if op1.Type == "Rem" && op2.Type == "Add" &&
 		op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock)) {
@@ -131,16 +160,12 @@ func (r RGA) RepairCausal(op1 communication.Operation, op2 communication.Operati
 	return op2
 }
 
-func (r RGA) MainOp() string {
-	return "Add"
+func (r RGA) SemidirectOps() []string {
+	return []string{"Add"}
 }
 
-// initialize RGA
-func NewRGAReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
-
-	r := crdt.NewSemidirect2CRDT(id, []Vertex{{communication.NewVClockFromMap(map[string]uint64{}), "", id}}, RGA{id})
-
-	return replica.NewReplica(id, r, channels, delay)
+func (r RGA) ECROOps() []string {
+	return []string{"Rem"}
 }
 
 func indexOfVPtr(vertex Vertex, vertices []Vertex) int {

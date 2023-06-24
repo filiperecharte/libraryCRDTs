@@ -1,7 +1,7 @@
 package test
 
 import (
-	datatypes "library/packages/datatypes/semidirect"
+	"library/packages/crdt"
 	"library/packages/replica"
 	"math/rand"
 	"reflect"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestAddWinsSEMI2(t *testing.T) {
+func TestAddWinsBASE(t *testing.T) {
 
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {
@@ -26,7 +26,7 @@ func TestAddWinsSEMI2(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewAddWins2Replica(strconv.Itoa(i), channels, numOperations-operations[i])
+			replicas[i] = crdt.NewAddWinsBaseReplica(strconv.Itoa(i), channels, numOperations)
 		}
 
 		// Start a goroutine for each replica
@@ -87,26 +87,29 @@ func TestAddWinsSEMI2(t *testing.T) {
 			st, _ := replicas[i].Crdt.Query()
 			t.Log("Replica ", i, ": ", st)
 		}
+		for i := 0; i < numReplicas; i++ {
+			replicas[i].Quit()
+		}
 		return true
 	}
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		operations_rep0 := 20
-		operations_rep1 := 20
-		operations_rep2 := 20
+		operations_rep0 := 5000
+		operations_rep1 := 5000
+		operations_rep2 := 5000
 
 		operations := []int{operations_rep0, operations_rep1, operations_rep2}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(60)              //number of operations
+		vals[2] = reflect.ValueOf(15000)           //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 100,
+		MaxCount: 1,
 		Values:   gen,
 	}
 

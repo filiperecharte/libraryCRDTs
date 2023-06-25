@@ -4,7 +4,8 @@ import (
 	"library/packages/communication"
 	"library/packages/middleware"
 	"library/packages/utils"
-	"log"
+	_ "net/http/pprof"
+	"os"
 	"sync"
 )
 
@@ -32,6 +33,8 @@ type Replica struct {
 	middleware    *middleware.Middleware
 	VersionVector communication.VClock
 	prepareLock   *sync.RWMutex
+
+	f *os.File
 
 	quit chan bool
 }
@@ -66,7 +69,7 @@ func (r *Replica) Quit() {
 // Broadcasts a message by incrementing the replica's own entry in the version vector
 // and enqueuing the message with the updated version vector to the middleware process.
 func (r *Replica) TCBcast(msg communication.Message) {
-	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
+	//log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 	r.middleware.Tcbcast <- msg
 }
 
@@ -76,20 +79,21 @@ func (r *Replica) dequeue() {
 	for {
 		select {
 		case <-r.quit:
+			//log.Println("[ REPLICA", r.id, "] QUITTING")
 			return
 		default:
 			msg := <-r.middleware.DeliverCausal
 			if msg.Type == communication.DLV {
-				log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
+				//log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 				r.prepareLock.Lock()
 				//if msg.OriginID != r.id {
-					t := msg.Version.FindTicks(msg.OriginID)
-					r.VersionVector.Set(msg.OriginID, t)
+				t := msg.Version.FindTicks(msg.OriginID)
+				r.VersionVector.Set(msg.OriginID, t)
 				//}
 				r.Crdt.Effect(msg.Operation)
 				r.prepareLock.Unlock()
 			} else if msg.Type == communication.STB {
-				log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+				//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 				r.Crdt.Stabilize(msg.Operation)
 			}
 		}

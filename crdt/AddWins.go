@@ -3,17 +3,23 @@ package crdt
 import (
 	"library/packages/communication"
 	"library/packages/replica"
+	"sync"
 
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
 type AddWins struct {
-	state map[any]communication.VClock
-	N_Ops uint64
+	id            string
+	state         map[any]communication.VClock
+	N_Ops         uint64
+	StabilizeLock *sync.RWMutex
 }
 
 // effect
 func (c *AddWins) Effect(op communication.Operation) {
+	c.StabilizeLock.Lock()
+	defer c.StabilizeLock.Unlock()
+
 	switch op.Type {
 	case "Add":
 		c.state[op.Value] = op.Version
@@ -30,6 +36,8 @@ func (c *AddWins) Effect(op communication.Operation) {
 }
 
 func (c *AddWins) Stabilize(op communication.Operation) {
+	c.StabilizeLock.Lock()
+	defer c.StabilizeLock.Unlock()
 	for i, v := range c.state {
 		if i == op.Value && v.Equal(op.Version) {
 			//removes the timestamp
@@ -53,6 +61,6 @@ func (c *AddWins) NumOps() uint64 {
 // initialize counter replica
 func NewAddWinsBaseReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
-	c := AddWins{map[any]communication.VClock{}, 0}
+	c := AddWins{id, map[any]communication.VClock{}, 0, new(sync.RWMutex)}
 	return replica.NewReplica(id, &c, channels, delay)
 }

@@ -126,7 +126,7 @@ func (r *SemidirectECRO) Effect(op communication.Operation) {
 	}
 	//-------------------------------------------------------
 
-	if r.respects(ecroNewOP) {
+	if r.hasConcurrentRem(ecroNewOP) {
 		//add operation to unstable state
 		r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{ecroNewOP})
 	} else {

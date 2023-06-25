@@ -26,7 +26,7 @@ func TestAddWinsBASE(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = crdt.NewAddWinsBaseReplica(strconv.Itoa(i), channels, numOperations)
+			replicas[i] = crdt.NewAddWinsBaseReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
@@ -70,6 +70,11 @@ func TestAddWinsBASE(t *testing.T) {
 				break
 			}
 		}
+		//quit all replicas
+		for i := 0; i < numReplicas; i++ {
+			replicas[i].Quit()
+		}
+		//pprof.StopCPUProfile()
 
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
@@ -87,29 +92,26 @@ func TestAddWinsBASE(t *testing.T) {
 			st, _ := replicas[i].Crdt.Query()
 			t.Log("Replica ", i, ": ", st)
 		}
-		for i := 0; i < numReplicas; i++ {
-			replicas[i].Quit()
-		}
 		return true
 	}
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
-		operations_rep0 := 5000
-		operations_rep1 := 5000
-		operations_rep2 := 5000
+		operations := []int{}
+		for i := 0; i < 5; i++ {
+			operations = append(operations, 10000)
+		}
 
-		operations := []int{operations_rep0, operations_rep1, operations_rep2}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(15000)           //number of operations
+		vals[2] = reflect.ValueOf(50000)             //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1,
+		MaxCount: 10,
 		Values:   gen,
 	}
 

@@ -117,11 +117,12 @@ func TestRGASEMIECRO(t *testing.T) {
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 		operations_rep0 := 10
 		operations_rep1 := 10
+		operations_rep2 := 10
 
-		operations := []int{operations_rep0, operations_rep1}
+		operations := []int{operations_rep0, operations_rep1, operations_rep2}
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(20)              //number of operations
+		vals[2] = reflect.ValueOf(30)              //number of operations
 	}
 
 	// Define config for quick.Check

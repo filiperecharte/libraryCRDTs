@@ -24,6 +24,7 @@ type SemidirectCRDT struct {
 	Unstable_operations []communication.Operation //all aplied updates
 	Unstable_st         any
 	N_Ops               uint64
+	S_Ops               uint64
 }
 
 func (r *SemidirectCRDT) Effect(op communication.Operation) {
@@ -43,6 +44,7 @@ func (r *SemidirectCRDT) Stabilize(op communication.Operation) {
 			break
 		}
 	}
+	r.S_Ops++
 }
 
 func (r *SemidirectCRDT) Query() (any, any) {
@@ -51,6 +53,10 @@ func (r *SemidirectCRDT) Query() (any, any) {
 
 func (r *SemidirectCRDT) NumOps() uint64 {
 	return r.N_Ops
+}
+
+func (r *SemidirectCRDT) NumSOps() uint64 {
+	return r.S_Ops
 }
 
 func (r *SemidirectCRDT) repair(op communication.Operation) communication.Operation {

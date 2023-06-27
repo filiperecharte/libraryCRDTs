@@ -14,6 +14,7 @@ type CommutativeCRDT struct {
 	Data      CommutativeDataI
 	Stable_st any
 	N_Ops     uint64
+	S_Ops     uint64
 }
 
 // effect
@@ -32,4 +33,8 @@ func (c *CommutativeCRDT) Query() (any, any) {
 
 func (c *CommutativeCRDT) NumOps() uint64 {
 	return c.N_Ops
+}
+
+func (c *CommutativeCRDT) NumSOps() uint64 {
+	return c.S_Ops
 }

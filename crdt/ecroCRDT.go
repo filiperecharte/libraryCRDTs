@@ -29,6 +29,7 @@ type EcroCRDT struct {
 	Stable_operation    communication.Operation
 	Unstable_st         any //most recent state
 	N_Ops               uint64
+	S_Ops               uint64
 
 	StabilizeLock *sync.RWMutex
 }
@@ -41,6 +42,7 @@ func NewEcroCRDT(id string, state any, data EcroDataI) *EcroCRDT {
 		Unstable_operations: graph.New(opHash, graph.Directed(), graph.Acyclic()),
 		Unstable_st:         state,
 		N_Ops:               0,
+		S_Ops:               0,
 		StabilizeLock:       new(sync.RWMutex),
 	}
 
@@ -63,6 +65,9 @@ func (r *EcroCRDT) Effect(op communication.Operation) {
 func (r *EcroCRDT) Stabilize(op communication.Operation) {
 	r.StabilizeLock.Lock()
 	defer r.StabilizeLock.Unlock()
+
+	r.S_Ops++
+
 	//remove vertex of the operation and all its edges
 	r.Stable_operation = op
 	t := r.topologicalSort()
@@ -96,6 +101,10 @@ func (r *EcroCRDT) Query() (any, any) {
 
 func (r *EcroCRDT) NumOps() uint64 {
 	return r.N_Ops
+}
+
+func (r *EcroCRDT) NumSOps() uint64 {
+	return r.S_Ops
 }
 
 // add edges to graph and return if its descendant of all operations or not

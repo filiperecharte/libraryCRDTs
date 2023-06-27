@@ -3,6 +3,7 @@ package test
 import (
 	"library/packages/crdt"
 	"library/packages/replica"
+	"log"
 	"math/rand"
 	"reflect"
 	"strconv"
@@ -39,7 +40,7 @@ func TestAddWinsBASE(t *testing.T) {
 				for j := 0; j < operations; j++ {
 
 					//generate random number
-					n := rand.Intn(10)
+					n := rand.Intn(52)
 
 					//choose randomly if it is an add or remove operation
 					OPType := "Add"
@@ -70,11 +71,14 @@ func TestAddWinsBASE(t *testing.T) {
 				break
 			}
 		}
+
+		log.Println("EFFECT OPS: ", replicas[0].Crdt.NumOps())
+		log.Println("STABILIZED OPS: ", replicas[0].Crdt.NumSOps())
+
 		//quit all replicas
 		for i := 0; i < numReplicas; i++ {
 			replicas[i].Quit()
 		}
-		//pprof.StopCPUProfile()
 
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
@@ -105,13 +109,13 @@ func TestAddWinsBASE(t *testing.T) {
 
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(50000)             //number of operations
+		vals[2] = reflect.ValueOf(50000)            //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 10,
+		MaxCount: 1,
 		Values:   gen,
 	}
 

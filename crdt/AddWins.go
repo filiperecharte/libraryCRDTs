@@ -12,6 +12,7 @@ type AddWins struct {
 	id            string
 	state         map[any]communication.VClock
 	N_Ops         uint64
+	S_Ops         uint64
 	StabilizeLock *sync.RWMutex
 }
 
@@ -31,7 +32,6 @@ func (c *AddWins) Effect(op communication.Operation) {
 			}
 		}
 	}
-
 	c.N_Ops++
 }
 
@@ -44,6 +44,7 @@ func (c *AddWins) Stabilize(op communication.Operation) {
 			c.state[i] = communication.VClock{}
 		}
 	}
+	c.S_Ops++
 }
 
 func (c *AddWins) Query() (any, any) {
@@ -58,9 +59,24 @@ func (c *AddWins) NumOps() uint64 {
 	return c.N_Ops
 }
 
+func (c *AddWins) NumSOps() uint64 {
+	return c.S_Ops
+}
+
 // initialize counter replica
 func NewAddWinsBaseReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
-	c := AddWins{id, map[any]communication.VClock{}, 0, new(sync.RWMutex)}
+	c := AddWins{id, map[any]communication.VClock{}, 0, 0, new(sync.RWMutex)}
 	return replica.NewReplica(id, &c, channels, delay)
+}
+
+func (c *AddWins) PrintOpsEffect() {
+	c.N_Ops++
+	if c.N_Ops%1000 == 0 {
+		println("effect", c.N_Ops)
+	}
+}
+
+func (c *AddWins) PrintOpsStabilize() {
+	c.S_Ops++
 }

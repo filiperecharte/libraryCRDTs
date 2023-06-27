@@ -2,7 +2,7 @@ package test
 
 import (
 	"library/packages/communication"
-	datatypes "library/packages/datatypes/ecro"
+	datatypes "library/packages/datatypes/commutative"
 	"library/packages/replica"
 	"log"
 	"math/rand"
@@ -18,9 +18,9 @@ import (
 )
 
 // variable with the alphabet to generate random strings
-var lettersECRO = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var lettersCOMM = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func TestRGAECRO(t *testing.T) {
+func TestRGACOMM(t *testing.T) {
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {
 		// Initialize channels
@@ -50,7 +50,7 @@ func TestRGAECRO(t *testing.T) {
 					v := rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
 
 					//choose random leter to add
-					value := lettersECRO[rand.Intn(len(lettersECRO))]
+					value := lettersCOMM[rand.Intn(len(lettersCOMM))]
 
 					//choose randomly if it is an add or remove operation
 					OPType := "Add"
@@ -70,8 +70,6 @@ func TestRGAECRO(t *testing.T) {
 					}
 
 					r.Prepare(OPType, OPValue)
-
-					//time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 
 				}
 
@@ -94,6 +92,9 @@ func TestRGAECRO(t *testing.T) {
 			}
 		}
 
+		log.Println("EFFECT OPS: ", replicas[0].Crdt.NumOps())
+		log.Println("STABILIZED OPS: ", replicas[0].Crdt.NumSOps())
+
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
 			st, _ := replicas[i].Crdt.Query()
@@ -109,22 +110,21 @@ func TestRGAECRO(t *testing.T) {
 				return false
 			}
 		}
-
-		stt, _ := replicas[0].Crdt.Query()
-		log.Println("state: ", stt)
 		log.Println("All replicas have the same state")
 		return true
 	}
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		operations_rep0 := 2
-		operations_rep1 := 2
 
-		operations := []int{operations_rep0, operations_rep1}
+		operations := []int{}
+		for i := 0; i < 5; i++ {
+			operations = append(operations, 1000)
+		}
+
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(4)               //number of operations
+		vals[2] = reflect.ValueOf(5000)            //number of operations
 	}
 
 	// Define config for quick.Check
@@ -140,7 +140,7 @@ func TestRGAECRO(t *testing.T) {
 	}
 }
 
-func generateRandomVertexECRO(r replica.Replica) datatypes.Vertex {
+func generateRandomVertexCOMM(r replica.Replica) datatypes.Vertex {
 	rgaState, rgaDeletedState := r.Crdt.Query()
 
 	v := datatypes.Vertex{}

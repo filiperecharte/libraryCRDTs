@@ -35,6 +35,11 @@ func (r *RGA) Apply(state any, operations []communication.Operation) any {
 			// find index where predecessor vertex can be found
 			predecessorIdx := indexOfVPtr(newVertexPrev, st)
 
+			// if predecessor vertex is not found, insert on root
+			if predecessorIdx == -1 {
+				predecessorIdx = 0
+			}
+
 			// adjust index where new vertex is to be inserted when concurrent insertions for the same predecessor occur
 			insertIdx := shift(predecessorIdx+1, newVertex, st)
 
@@ -45,6 +50,9 @@ func (r *RGA) Apply(state any, operations []communication.Operation) any {
 			removeVertex := msg.Value.(RGAOpValue).V
 			// find index where removed vertex can be found and clear its content to tombstone it
 			index := indexOfVPtr(removeVertex, st)
+			if index == -1 {
+				continue
+			}
 			st[index] = Vertex{st[index].Timestamp, nil, st[index].OriginID}
 		}
 	}
@@ -57,6 +65,9 @@ func (r RGA) Stabilize(state any, op communication.Operation) any {
 		st := state.([]Vertex)
 		removeVertex := op.Value.(RGAOpValue).V
 		index := indexOfVPtr(removeVertex, st)
+		if index == -1 {
+			return state
+		}
 		st = append(st[:index], st[index+1:]...)
 		return st
 	}

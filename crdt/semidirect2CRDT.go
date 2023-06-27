@@ -2,7 +2,6 @@ package crdt
 
 import (
 	"library/packages/communication"
-	"log"
 	"sync"
 )
 
@@ -40,6 +39,7 @@ type Semidirect2CRDT struct {
 	NonMain_operations   []NonMainOp
 	Unstable_st          any
 	N_Ops                uint64
+	S_Ops                uint64
 
 	effectLock *sync.RWMutex
 }
@@ -53,6 +53,7 @@ func NewSemidirect2CRDT(id string, state any, data Semidirect2DataI) *Semidirect
 		NonMain_operations:  []NonMainOp{},
 		Unstable_st:         state,
 		N_Ops:               0,
+		S_Ops:               0,
 		effectLock:          new(sync.RWMutex),
 	}
 
@@ -63,9 +64,10 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 	r.effectLock.Lock()
 	defer r.effectLock.Unlock()
 
+	r.N_Ops++
+
 	if r.Data.MainOp() != op.Type {
 		r.NonMain_operations = append(r.NonMain_operations, NonMainOp{op, []communication.Operation{}})
-		r.N_Ops++
 		return
 	}
 
@@ -92,13 +94,13 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 			r.Unstable_operations = append([]communication.Operation{op}, r.Unstable_operations...)
 		}
 	}
-
-	r.N_Ops++
 }
 
 func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	r.effectLock.Lock()
 	defer r.effectLock.Unlock()
+
+	r.S_Ops++
 
 	if r.Data.MainOp() == op.Type {
 		r.StableMain_operation = op
@@ -107,7 +109,6 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 	for i, v := range r.NonMain_operations {
 		//log.Println("COMPARING", v.HigherTimestamp, op.Version)
 		if r.becameStable(v.HigherTimestamp) {
-			log.Println("REMOVING -------------------------------------------------->", v.Op)
 			r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
 			break
 		}
@@ -151,6 +152,10 @@ func (r *Semidirect2CRDT) Query() (any, any) {
 }
 
 func (r *Semidirect2CRDT) NumOps() uint64 {
+	return r.N_Ops
+}
+
+func (r *Semidirect2CRDT) NumSOps() uint64 {
 	return r.N_Ops
 }
 
@@ -236,4 +241,16 @@ func (r Semidirect2CRDT) becameStable(ops []communication.Operation) bool {
 		}
 	}
 	return true
+}
+
+func (r *Semidirect2CRDT) PrintOpsEffect() {
+	r.N_Ops++
+	if r.N_Ops%1000 == 0 {
+		println("effect", r.N_Ops)
+	}
+}
+
+func (r *Semidirect2CRDT) PrintOpsStabilize() {
+	r.S_Ops++
+	println("stabilize", r.S_Ops)
 }

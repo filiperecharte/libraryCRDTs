@@ -51,6 +51,7 @@ type SemidirectECRO struct {
 	ECROLog              graph.Graph[string, ECROOp]
 	Unstable_st          any
 	N_Ops                uint64
+	S_Ops                uint64
 
 	effectLock *sync.RWMutex
 }
@@ -65,6 +66,7 @@ func NewSemidirectECRO(id string, state any, data SemidirectECRODataI) *Semidire
 		ECROLog:       graph.New(opHashSemiECRO, graph.Directed(), graph.Acyclic()),
 		Unstable_st:   state,
 		N_Ops:         0,
+		S_Ops:         0,
 		effectLock:    new(sync.RWMutex),
 	}
 
@@ -141,16 +143,7 @@ func (r *SemidirectECRO) hasConcurrentRem(op communication.Operation) bool {
 	adjacencyMap, _ := r.ECROLog.AdjacencyMap()
 	for vertexHash := range adjacencyMap {
 		vertex, _ := r.ECROLog.Vertex(vertexHash)
-		if vertex.Op.Version.Compare(op.Version) == communication.Concurrent && !r.Data.Commutes(vertex.Op, op) {
-			return false
-		}
-	}
-	return true
-}
-
-func (r *SemidirectECRO) respects(op communication.Operation) bool {
-	for _, o := range r.SemidirectLog {
-		if _, ok := r.Data.ArbitrationOrderMain(o, op); !ok {
+		if vertex.Op.Version.Compare(op.Version) != communication.Concurrent || !r.Data.Commutes(vertex.Op, op) {
 			return false
 		}
 	}
@@ -161,6 +154,8 @@ func (r *SemidirectECRO) Stabilize(op communication.Operation) {
 	r.effectLock.Lock()
 	defer r.effectLock.Unlock()
 
+	r.S_Ops++
+
 	if utils.ContainsString(r.Data.SemidirectOps(), op.Type) {
 		r.StableMain_operation = op
 	}
@@ -168,7 +163,6 @@ func (r *SemidirectECRO) Stabilize(op communication.Operation) {
 	adjacencyMap, _ := r.ECROLog.AdjacencyMap()
 	for vertexHash := range adjacencyMap {
 		vertex, _ := r.ECROLog.Vertex(vertexHash)
-		//log.Println("COMPARING", v.HigherTimestamp, op.Version)
 		if r.becameStable(vertex.HigherTimestamp) {
 
 			//remove all edges that have the operation as target or source
@@ -182,7 +176,7 @@ func (r *SemidirectECRO) Stabilize(op communication.Operation) {
 			}
 
 			//remove vertex of the operation
-			r.ECROLog.RemoveVertex(opHash(op))
+			r.ECROLog.RemoveVertex(vertexHash)
 			break
 		}
 	}
@@ -193,8 +187,9 @@ func (r *SemidirectECRO) Stabilize(op communication.Operation) {
 		for vertexHash := range adjacencyMap {
 			vertex, _ := r.ECROLog.Vertex(vertexHash)
 			if vertex.Op.Equals(op) {
+				newVertex := ECROOp{vertex.Op, r.getGreatestOps()}
 				//r.NonMain_operations = append(r.NonMain_operations[:i], r.NonMain_operations[i+1:]...)
-				vertex.HigherTimestamp = r.getGreatestOps()
+				r.updateVertex(vertex, newVertex)
 				r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
 				break
 			}
@@ -225,6 +220,10 @@ func (r *SemidirectECRO) NumOps() uint64 {
 	return r.N_Ops
 }
 
+func (r *SemidirectECRO) NumSOps() uint64 {
+	return r.N_Ops
+}
+
 func (r *SemidirectECRO) repairRight(op communication.Operation) communication.Operation {
 	//find operations that is concurrent with op
 
@@ -252,7 +251,7 @@ func (r *SemidirectECRO) repairLeft(op communication.Operation) communication.Op
 // check if prefix of the operations is stable (all operations of the prefix are in stable_operations)
 func (r SemidirectECRO) prefixStable(index int) bool {
 	for _, o := range r.SemidirectLog[:index+1] {
-		if r.StableMain_operation.Version.Compare(o.Version) != communication.Descendant {
+		if o.Version.Compare(r.StableMain_operation.Version) != communication.Descendant {
 			return false
 		}
 	}
@@ -423,4 +422,27 @@ func (r *SemidirectECRO) addEdges(op communication.Operation) bool {
 // creates hash for operation
 func opHashSemiECRO(op ECROOp) string {
 	return op.Op.OriginID + strconv.FormatUint(op.Op.Version.Sum(), 10)
+}
+
+// update vertex of the graph by removing all edges that have the operation as target or source and then removing the vertex and adding it again
+func (r *SemidirectECRO) updateVertex(op ECROOp, newop ECROOp) {
+
+	tempEdges := []graph.Edge[string]{} //edges to be removed
+	adjacencyMap, _ := r.ECROLog.AdjacencyMap()
+	for _, edges := range adjacencyMap {
+		for _, edge := range edges {
+			if edge.Source == opHashSemiECRO(op) || edge.Target == opHashSemiECRO(op) {
+				tempEdges = append(tempEdges, edge)
+				r.ECROLog.RemoveEdge(edge.Source, edge.Target)
+			}
+		}
+	}
+	//remove from graph
+	r.ECROLog.RemoveVertex(opHashSemiECRO(op))
+	//add to graph
+	r.ECROLog.AddVertex(newop, graph.VertexAttribute("label", opHashSemiECRO(newop)+" "+newop.Op.Type+" "+newop.Op.Version.ReturnVCString()))
+	//add edges again
+	for _, edge := range tempEdges {
+		r.ECROLog.AddEdge(edge.Source, edge.Target, graph.EdgeAttributes(map[string]string{"label": edge.Properties.Attributes["label"], "id": edge.Properties.Attributes["id"]}))
+	}
 }

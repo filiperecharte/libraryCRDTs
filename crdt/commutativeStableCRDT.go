@@ -19,6 +19,7 @@ type CommutativeStableCRDT struct {
 	Data      CommutativeStableDataI
 	Stable_st any
 	N_Ops     uint64
+	S_Ops     uint64
 }
 
 // effect
@@ -29,6 +30,7 @@ func (c *CommutativeStableCRDT) Effect(op communication.Operation) {
 
 func (c *CommutativeStableCRDT) Stabilize(op communication.Operation) {
 	c.Stable_st = c.Data.Stabilize(c.Stable_st, op)
+	c.S_Ops++
 }
 
 func (c *CommutativeStableCRDT) Query() (any, any) {
@@ -37,4 +39,8 @@ func (c *CommutativeStableCRDT) Query() (any, any) {
 
 func (c *CommutativeStableCRDT) NumOps() uint64 {
 	return c.N_Ops
+}
+
+func (c *CommutativeStableCRDT) NumSOps() uint64 {
+	return c.S_Ops
 }

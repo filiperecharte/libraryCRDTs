@@ -46,8 +46,8 @@ func TestRGASEMIECRO(t *testing.T) {
 
 				for j := 0; j < operations; j++ {
 					//choose a predecessor or a vertex to remove randomly from query
-					//rgaState, _ := r.Crdt.Query()
-					v := generateRandomVertexSEMIECRO(*r)
+					rgaState, _ := r.Crdt.Query()
+					v := rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
 
 					//choose random leter to add
 					value := lettersECRO[rand.Intn(len(lettersECRO))]
@@ -71,8 +71,6 @@ func TestRGASEMIECRO(t *testing.T) {
 
 					r.Prepare(OPType, OPValue)
 
-					time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
-
 				}
 
 			}(replicas[i], operations[i])
@@ -93,6 +91,9 @@ func TestRGASEMIECRO(t *testing.T) {
 				break
 			}
 		}
+
+		log.Println("EFFECT OPS: ", replicas[0].Crdt.NumOps())
+		log.Println("STABILIZED OPS: ", replicas[0].Crdt.NumSOps())
 
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
@@ -115,20 +116,21 @@ func TestRGASEMIECRO(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
-		operations_rep0 := 10
-		operations_rep1 := 10
-		operations_rep2 := 10
 
-		operations := []int{operations_rep0, operations_rep1, operations_rep2}
+		operations := []int{}
+		for i := 0; i < 5; i++ {
+			operations = append(operations, 1000)
+		}
+
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(30)              //number of operations
+		vals[2] = reflect.ValueOf(5000)            //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 100,
+		MaxCount: 1,
 		Values:   gen,
 	}
 

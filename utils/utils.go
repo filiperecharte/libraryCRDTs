@@ -149,3 +149,13 @@ func Timer(name string, w **csv.Writer) func() {
 		(*w).Write(row)
 	}
 }
+
+func PrintOpsEffect(f string, n uint64) {
+	if n%1000 == 0 {
+		println(f, n)
+	}
+}
+
+func PrintOpsStabilize(f string, n uint64) {
+	println(f, n)
+}

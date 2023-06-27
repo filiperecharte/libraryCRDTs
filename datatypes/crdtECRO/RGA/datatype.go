@@ -113,8 +113,8 @@ func (r RGA) RepairRight(op1 communication.Operation, op2 communication.Operatio
 
 	ordered := true
 	//ef1 := r.effectivePos(op1.Value.(RGAOpValue).V, state.([]Vertex))
-	ef2 := r.effectivePos(op2.Value.(RGAOpValue).V, state.([]Vertex))
-	if op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(ef2.Timestamp.(communication.VClock)) {
+	//ef2 := r.effectivePos(op2.Value.(RGAOpValue).V, state.([]Vertex))
+	if op1.Value.(RGAOpValue).V.Timestamp.(communication.VClock).Equal(op2.Value.(RGAOpValue).V.Timestamp.(communication.VClock)) {
 		//arbitration order by ids
 		id1, _ := strconv.Atoi(strconv.Itoa(int(op1.Version.Sum())) + op1.OriginID)
 		id2, _ := strconv.Atoi(strconv.Itoa(int(op2.Version.Sum())) + op2.OriginID)
@@ -151,6 +151,7 @@ func (r RGA) RepairLeft(op1 communication.Operation, op2 communication.Operation
 			Value: RGAOpValue{
 				Vertex{
 					Timestamp: communication.NewVClockFromMap(map[string]uint64{}),
+					OriginID:  op1.OriginID,
 				},
 				op2.Value.(RGAOpValue).Value,
 			},

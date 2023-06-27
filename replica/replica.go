@@ -24,6 +24,9 @@ type CrdtI interface {
 
 	// Returns the number of operations applied to the CRDT for testing purposes
 	NumOps() uint64
+
+	// Returns the number of operations applied to the CRDT for testing purposes
+	NumSOps() uint64
 }
 
 type Replica struct {

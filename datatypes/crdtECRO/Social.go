@@ -26,7 +26,7 @@ func (s Social) accept(state SocialState, elem any) SocialState {
 	elem = elem.(communication.Operation).Value
 	from, to := elem.(SocialOpValue).From, elem.(SocialOpValue).To
 
-	if !state.Requesters[from].Contains(to) {
+	if from == -1 || !state.Requesters[from].Contains(to) {
 		return state
 	}
 
@@ -55,7 +55,7 @@ func (s Social) request(state SocialState, elem any) SocialState {
 	elem = elem.(communication.Operation).Value
 	from, to := elem.(SocialOpValue).From, elem.(SocialOpValue).To
 
-	if state.Friends[to].Contains(from) || state.Requesters[to].Contains(from) {
+	if from == -1 || state.Friends[to].Contains(from) || state.Requesters[to].Contains(from) {
 		return state
 	}
 
@@ -109,19 +109,24 @@ func (s Social) Commutes(op1 communication.Operation, op2 communication.Operatio
 }
 
 func (s Social) ArbitrationOrderMain(op1 communication.Operation, op2 communication.Operation) (bool, bool) {
-	return false, op1.Type == "Pop" && op2.Type == "setPopped"
+	return false, true
 }
 
 func (s Social) RepairRight(op1 communication.Operation, op2 communication.Operation, state any) communication.Operation {
-	if op1.Type == "setPopped" && op2.Type == "Pop" {
-		return communication.Operation{"Pop", false, op1.Version, op1.OriginID}
+	if op1.Type == "request" && op2.Type == "accept" {
+		return communication.Operation{"accept", SocialOpValue{From: -1, To: -1}, op2.Version, op2.OriginID}
 	}
-
 	return op2
 }
 
 func (s Social) RepairLeft(op1 communication.Operation, op2 communication.Operation) communication.Operation {
-	return communication.Operation{"setPopped", op1.Value, op2.Version, op2.OriginID}
+	if op1.Type == "reject" && op2.Type == "request" {
+		return communication.Operation{"request", SocialOpValue{From: -1, To: -1}, op2.Version, op2.OriginID}
+	} else if op1.Type == "breakup" && op2.Type == "accept" {
+		return communication.Operation{"accept", SocialOpValue{From: -1, To: -1}, op2.Version, op2.OriginID}
+	}
+
+	return op2
 }
 
 func (s Social) SemidirectOps() []string {

@@ -83,7 +83,7 @@ func (r *Replica) dequeue() {
 	for {
 		select {
 		case <-r.quit:
-			//log.Println("[ REPLICA", r.id, "] QUITTING")
+			log.Println("[ REPLICA", r.id, "] QUITTING")
 			return
 		default:
 			msg := <-r.middleware.DeliverCausal

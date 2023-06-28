@@ -3,7 +3,6 @@ package crdt
 import (
 	"library/packages/communication"
 	"library/packages/utils"
-	"log"
 	"strconv"
 	"sync"
 
@@ -65,6 +64,7 @@ func (r *EcroCRDT) Effect(op communication.Operation) {
 		r.Sorted_ops = r.incTopologicalSort(r.Sorted_ops, op)
 		r.Unstable_st = r.Data.Apply(r.Stable_st, r.Sorted_ops)
 	}
+
 	r.N_Ops++
 }
 
@@ -103,13 +103,13 @@ func (r *EcroCRDT) Query() (any, any) {
 	r.StabilizeLock.Lock()
 	defer r.StabilizeLock.Unlock()
 
-	l := []string{}
+	// l := []string{}
 
-	for _, op := range r.Sorted_ops {
-		l = append(l, opHash(op))
-	}
+	// for _, op := range r.Sorted_ops {
+	// 	l = append(l, opHash(op))
+	// }
 
-	log.Println(r.Id, "Sorted_ops: ", l)
+	// log.Println(r.Id, "QUERY RESULT ->", l)
 
 	return r.Unstable_st, nil
 }
@@ -141,6 +141,7 @@ func (r *EcroCRDT) addEdges(op communication.Operation) bool {
 				isSafe = false
 				r.Unstable_operations.AddEdge(opHash, vertexHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": opHash + vertexHash}))
 			} else if r.Data.Order(vertex, op) {
+				isSafe = false
 				r.Unstable_operations.AddEdge(vertexHash, opHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": vertexHash + opHash}))
 			}
 		}
@@ -161,23 +162,15 @@ func (r *EcroCRDT) incTopologicalSort(topoSort []communication.Operation, u comm
 
 	x := topoSort[0]
 
-	if x.Version.Compare(u.Version) == communication.Descendant {
+	if x.Version.Compare(u.Version) == communication.Descendant && !r.Data.Commutes(x, u) {
 		return append([]communication.Operation{x}, r.incTopologicalSort(topoSort[1:], u)...)
 
-	} else if r.Data.Order(x, u) {
-		isCausalDesc := false
-		for _, y := range topoSort {
-			if y.Version.Compare(x.Version) == communication.Descendant {
-				isCausalDesc = true
-			}
-		}
-		if !isCausalDesc {
-			return append([]communication.Operation{x}, r.incTopologicalSort(topoSort[1:], u)...)
-		}
+	} else if r.Data.Order(x, u) && !r.Data.Commutes(x, u) {
+		return append([]communication.Operation{x}, r.incTopologicalSort(topoSort[1:], u)...)
 	} else {
 		isLess := true
 		for _, y := range topoSort {
-			if !(r.Data.Order(u, y)) {
+			if !(r.Data.Order(u, y) && !r.Data.Commutes(y, u)) {
 				isLess = false
 			}
 		}

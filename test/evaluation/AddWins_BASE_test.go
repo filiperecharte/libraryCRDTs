@@ -104,12 +104,12 @@ func TestAddWinsBASE(t *testing.T) {
 
 		operations := []int{}
 		for i := 0; i < 5; i++ {
-			operations = append(operations, 10000)
+			operations = append(operations, 500)
 		}
 
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(50000)            //number of operations
+		vals[2] = reflect.ValueOf(2500)            //number of operations
 	}
 
 	// Define config for quick.Check

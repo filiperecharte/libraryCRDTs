@@ -2,6 +2,8 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"library/packages/utils"
+	"log"
 	"strconv"
 	"sync"
 
@@ -28,8 +30,10 @@ type EcroCRDT struct {
 	Unstable_operations graph.Graph[string, communication.Operation]
 	Stable_operation    communication.Operation
 	Unstable_st         any //most recent state
-	N_Ops               uint64
-	S_Ops               uint64
+	Sorted_ops          []communication.Operation
+
+	N_Ops uint64
+	S_Ops uint64
 
 	StabilizeLock *sync.RWMutex
 }
@@ -51,14 +55,16 @@ func NewEcroCRDT(id string, state any, data EcroDataI) *EcroCRDT {
 
 func (r *EcroCRDT) Effect(op communication.Operation) {
 	r.StabilizeLock.Lock()
+	defer r.StabilizeLock.Unlock()
+
 	r.Unstable_operations.AddVertex(op, graph.VertexAttribute("label", opHash(op)+" "+op.Type+" "+op.Version.ReturnVCString()))
 	if r.addEdges(op) {
+		r.Sorted_ops = append(r.Sorted_ops, op)
 		r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
 	} else {
-		r.Unstable_st = r.Data.Apply(r.Stable_st, r.topologicalSort())
+		r.Sorted_ops = r.incTopologicalSort(r.Sorted_ops, op)
+		r.Unstable_st = r.Data.Apply(r.Stable_st, r.Sorted_ops)
 	}
-
-	r.StabilizeLock.Unlock()
 	r.N_Ops++
 }
 
@@ -70,7 +76,7 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 
 	//remove vertex of the operation and all its edges
 	r.Stable_operation = op
-	t := r.topologicalSort()
+	t := r.Sorted_ops
 	io := indexOf(t, op)
 
 	if !r.prefixStable(t, io) {
@@ -96,6 +102,15 @@ func (r *EcroCRDT) Stabilize(op communication.Operation) {
 func (r *EcroCRDT) Query() (any, any) {
 	r.StabilizeLock.Lock()
 	defer r.StabilizeLock.Unlock()
+
+	l := []string{}
+
+	for _, op := range r.Sorted_ops {
+		l = append(l, opHash(op))
+	}
+
+	log.Println(r.Id, "Sorted_ops: ", l)
+
 	return r.Unstable_st, nil
 }
 
@@ -120,11 +135,10 @@ func (r *EcroCRDT) addEdges(op communication.Operation) bool {
 		opHash := opHash(op)
 
 		if cmp == communication.Ancestor && !r.Data.Commutes(op, vertex) {
-			isSafe = false
 			r.Unstable_operations.AddEdge(vertexHash, opHash, graph.EdgeAttributes(map[string]string{"label": "hb", "id": vertexHash + opHash}))
 		} else if cmp == communication.Concurrent && !r.Data.Commutes(op, vertex) {
-			isSafe = false
 			if r.Data.Order(op, vertex) {
+				isSafe = false
 				r.Unstable_operations.AddEdge(opHash, vertexHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": opHash + vertexHash}))
 			} else if r.Data.Order(vertex, op) {
 				r.Unstable_operations.AddEdge(vertexHash, opHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": vertexHash + opHash}))
@@ -137,11 +151,46 @@ func (r *EcroCRDT) addEdges(op communication.Operation) bool {
 
 // creates hash for operation
 func opHash(op communication.Operation) string {
-	return op.OriginID + strconv.FormatUint(op.Version.Sum(), 10)
+	return strconv.FormatUint(op.Version.Sum(), 10) + op.OriginID
+}
+
+func (r *EcroCRDT) incTopologicalSort(topoSort []communication.Operation, u communication.Operation) []communication.Operation {
+	if len(topoSort) == 0 {
+		return []communication.Operation{u}
+	}
+
+	x := topoSort[0]
+
+	if x.Version.Compare(u.Version) == communication.Descendant {
+		return append([]communication.Operation{x}, r.incTopologicalSort(topoSort[1:], u)...)
+
+	} else if r.Data.Order(x, u) {
+		isCausalDesc := false
+		for _, y := range topoSort {
+			if y.Version.Compare(x.Version) == communication.Descendant {
+				isCausalDesc = true
+			}
+		}
+		if !isCausalDesc {
+			return append([]communication.Operation{x}, r.incTopologicalSort(topoSort[1:], u)...)
+		}
+	} else {
+		isLess := true
+		for _, y := range topoSort {
+			if !(r.Data.Order(u, y)) {
+				isLess = false
+			}
+		}
+		if isLess {
+			return append([]communication.Operation{u}, topoSort...)
+		}
+	}
+
+	return r.topologicalSort(append([]communication.Operation{u}, topoSort...))
 }
 
 // orders the operations in the graph
-func (r EcroCRDT) topologicalSort() []communication.Operation {
+func (r EcroCRDT) topologicalSort(vertices []communication.Operation) []communication.Operation {
 	//find minimum vertex of the graph (vertex with no incoming edges)
 	//it can have more than one minimum, choose deterministically (by finding the minimum id) and continue algorithm
 
@@ -155,26 +204,36 @@ func (r EcroCRDT) topologicalSort() []communication.Operation {
 	var order []communication.Operation
 	removedVertices := make(map[string]bool)
 	removedEdges := make(map[string]map[string]bool)
+	//predecessorMap, _ := r.Unstable_operations.PredecessorMap()
+	edgesG, _ := r.Unstable_operations.Edges()
+
+	edges := []graph.Edge[string]{}
+
+	for _, edge := range edgesG {
+		target, _ := r.Unstable_operations.Vertex(edge.Target)
+		source, _ := r.Unstable_operations.Vertex(edge.Source)
+		if utils.Contains(vertices, target) && utils.Contains(vertices, source) {
+			edges = append(edges, edge)
+		}
+	}
 
 	for {
 		// Create map to count incoming edges
 		inDegree := make(map[string]int)
-		g, _ := r.Unstable_operations.AdjacencyMap()
 
-		for vertex := range g {
-			inDegree[vertex] = 0 // Initialize inDegree for all vertices to 0
+		for _, vertex := range vertices {
+			inDegree[opHash(vertex)] = 0 // Initialize inDegree for all vertices to 0
 		}
 
-		for _, edges := range g {
-			for _, edge := range edges {
-				if !removedVertices[edge.Source] && !removedVertices[edge.Target] && !removedEdges[edge.Source][edge.Target] {
-					inDegree[edge.Target]++
-				}
+		for _, edge := range edges {
+			if !removedVertices[edge.Source] && !removedVertices[edge.Target] && !removedEdges[edge.Source][edge.Target] {
+				inDegree[edge.Target]++
 			}
 		}
 
 		// Find minimum vertex
 		minVertex := communication.Operation{Type: ""}
+
 		for vertex, degree := range inDegree {
 			if degree == 0 && !removedVertices[vertex] {
 				if minVertex.Type == "" || vertex < opHash(minVertex) {
@@ -186,11 +245,9 @@ func (r EcroCRDT) topologicalSort() []communication.Operation {
 		// If no minimum vertex found, there is a cycle
 		if minVertex.Type == "" {
 			minEdge := graph.Edge[string]{Source: "", Target: "", Properties: graph.EdgeProperties{Attributes: map[string]string{"label": "ao"}}}
-			for _, edges := range g {
-				for _, edge := range edges {
-					if edge.Properties.Attributes["label"] == "ao" && (minEdge.Source == "" || edge.Properties.Attributes["id"] < minEdge.Properties.Attributes["id"]) && !removedEdges[edge.Source][edge.Target] {
-						minEdge = edge
-					}
+			for _, edge := range edges {
+				if edge.Properties.Attributes["label"] == "ao" && (minEdge.Source == "" || edge.Properties.Attributes["id"] < minEdge.Properties.Attributes["id"]) && !removedEdges[edge.Source][edge.Target] {
+					minEdge = edge
 				}
 			}
 
@@ -207,7 +264,7 @@ func (r EcroCRDT) topologicalSort() []communication.Operation {
 		removedVertices[opHash(minVertex)] = true
 
 		// If all vertices are "removed", we are done
-		if len(order) == len(g) {
+		if len(order) == len(vertices) {
 			break
 		}
 	}

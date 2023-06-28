@@ -156,7 +156,7 @@ func (r *Semidirect2CRDT) NumOps() uint64 {
 }
 
 func (r *Semidirect2CRDT) NumSOps() uint64 {
-	return r.N_Ops
+	return r.S_Ops
 }
 
 func (r *Semidirect2CRDT) repair(op communication.Operation) communication.Operation {

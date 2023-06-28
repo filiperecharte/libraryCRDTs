@@ -50,8 +50,10 @@ type SemidirectECRO struct {
 	StableMain_operation communication.Operation
 	ECROLog              graph.Graph[string, ECROOp]
 	Unstable_st          any
-	N_Ops                uint64
-	S_Ops                uint64
+	Sorted_ops           []communication.Operation
+
+	N_Ops uint64
+	S_Ops uint64
 
 	effectLock *sync.RWMutex
 }
@@ -65,6 +67,7 @@ func NewSemidirectECRO(id string, state any, data SemidirectECRODataI) *Semidire
 		SemidirectLog: []communication.Operation{},
 		ECROLog:       graph.New(opHashSemiECRO, graph.Directed(), graph.Acyclic()),
 		Unstable_st:   state,
+		Sorted_ops:    []communication.Operation{},
 		N_Ops:         0,
 		S_Ops:         0,
 		effectLock:    new(sync.RWMutex),
@@ -87,11 +90,11 @@ func (r *SemidirectECRO) Effect(op communication.Operation) {
 
 		//checks if op respects arbitration order
 		if r.addEdges(op) {
-			//add operation to unstable state
+			r.Sorted_ops = append(r.Sorted_ops, op)
 			r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{op})
 		} else {
-			//rollback
-			r.Unstable_st = r.Data.Apply(r.Stable_st, r.topologicalSort())
+			r.Sorted_ops = r.incTopologicalSort(r.Sorted_ops, op)
+			r.Unstable_st = r.Data.Apply(r.Stable_st, r.Sorted_ops)
 		}
 
 		return
@@ -130,10 +133,11 @@ func (r *SemidirectECRO) Effect(op communication.Operation) {
 
 	if r.hasConcurrentRem(ecroNewOP) {
 		//add operation to unstable state
+		r.Sorted_ops = append(r.Sorted_ops, ecroNewOP)
 		r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{ecroNewOP})
 	} else {
-		//rollback
-		r.Unstable_st = r.Data.Apply(r.Stable_st, r.topologicalSort())
+		r.Sorted_ops = r.incTopologicalSort(r.Sorted_ops, op)
+		r.Unstable_st = r.Data.Apply(r.Stable_st, r.Sorted_ops)
 	}
 
 }
@@ -250,6 +254,9 @@ func (r *SemidirectECRO) repairLeft(op communication.Operation) communication.Op
 
 // check if prefix of the operations is stable (all operations of the prefix are in stable_operations)
 func (r SemidirectECRO) prefixStable(index int) bool {
+	if index == -1 {
+		return false
+	}
 	for _, o := range r.SemidirectLog[:index+1] {
 		if o.Version.Compare(r.StableMain_operation.Version) != communication.Descendant {
 			return false
@@ -312,8 +319,43 @@ func (r SemidirectECRO) becameStable(ops []communication.Operation) bool {
 	return true
 }
 
+func (r *SemidirectECRO) incTopologicalSort(topoSort []communication.Operation, u communication.Operation) []communication.Operation {
+	if len(topoSort) == 0 {
+		return []communication.Operation{u}
+	}
+
+	x := topoSort[0]
+
+	if x.Version.Compare(u.Version) == communication.Descendant {
+		return append([]communication.Operation{x}, r.incTopologicalSort(topoSort[1:], u)...)
+
+	} else if r.Data.Order(x, u) {
+		isCausalDesc := false
+		for _, y := range topoSort {
+			if y.Version.Compare(x.Version) == communication.Descendant {
+				isCausalDesc = true
+			}
+		}
+		if !isCausalDesc {
+			return append([]communication.Operation{x}, r.incTopologicalSort(topoSort[1:], u)...)
+		}
+	} else {
+		isLess := true
+		for _, y := range topoSort {
+			if !(r.Data.Order(u, y)) {
+				isLess = false
+			}
+		}
+		if isLess {
+			return append([]communication.Operation{u}, topoSort...)
+		}
+	}
+
+	return r.topologicalSort(append([]communication.Operation{u}, topoSort...))
+}
+
 // orders the operations in the graph
-func (r SemidirectECRO) topologicalSort() []communication.Operation {
+func (r SemidirectECRO) topologicalSort(vertices []communication.Operation) []communication.Operation {
 	//find minimum vertex of the graph (vertex with no incoming edges)
 	//it can have more than one minimum, choose deterministically (by finding the minimum id) and continue algorithm
 
@@ -324,49 +366,54 @@ func (r SemidirectECRO) topologicalSort() []communication.Operation {
 	//after killing the edge one of the verices will be the minimum if there is only one cycle
 	//if there's another cycle repeat the process
 
-	if size, _ := r.ECROLog.Order(); size == 0 {
-		return []communication.Operation{}
-	}
-
 	var order []communication.Operation
 	removedVertices := make(map[string]bool)
 	removedEdges := make(map[string]map[string]bool)
+	//predecessorMap, _ := r.Unstable_operations.PredecessorMap()
+	edgesG, _ := r.ECROLog.Edges()
+
+	edges := []graph.Edge[string]{}
+
+	for _, edge := range edgesG {
+		target, _ := r.ECROLog.Vertex(edge.Target)
+		source, _ := r.ECROLog.Vertex(edge.Source)
+		if utils.Contains(vertices, target.Op) && utils.Contains(vertices, source.Op) {
+			edges = append(edges, edge)
+		}
+	}
 
 	for {
 		// Create map to count incoming edges
 		inDegree := make(map[string]int)
-		g, _ := r.ECROLog.AdjacencyMap()
 
-		for vertex := range g {
-			inDegree[vertex] = 0 // Initialize inDegree for all vertices to 0
+		for _, vertex := range vertices {
+			inDegree[opHash(vertex)] = 0 // Initialize inDegree for all vertices to 0
 		}
 
-		for _, edges := range g {
-			for _, edge := range edges {
-				if !removedVertices[edge.Source] && !removedVertices[edge.Target] && !removedEdges[edge.Source][edge.Target] {
-					inDegree[edge.Target]++
-				}
+		for _, edge := range edges {
+			if !removedVertices[edge.Source] && !removedVertices[edge.Target] && !removedEdges[edge.Source][edge.Target] {
+				inDegree[edge.Target]++
 			}
 		}
 
 		// Find minimum vertex
-		minVertex := ECROOp{communication.Operation{Type: ""}, []communication.Operation{}}
+		minVertex := communication.Operation{Type: ""}
+
 		for vertex, degree := range inDegree {
 			if degree == 0 && !removedVertices[vertex] {
-				if minVertex.Op.Type == "" || vertex < opHashSemiECRO(minVertex) {
-					minVertex, _ = r.ECROLog.Vertex(vertex)
+				if minVertex.Type == "" || vertex < opHash(minVertex) {
+					minV, _ := r.ECROLog.Vertex(vertex)
+					minVertex = minV.Op
 				}
 			}
 		}
 
 		// If no minimum vertex found, there is a cycle
-		if minVertex.Op.Type == "" {
+		if minVertex.Type == "" {
 			minEdge := graph.Edge[string]{Source: "", Target: "", Properties: graph.EdgeProperties{Attributes: map[string]string{"label": "ao"}}}
-			for _, edges := range g {
-				for _, edge := range edges {
-					if edge.Properties.Attributes["label"] == "ao" && (minEdge.Source == "" || edge.Properties.Attributes["id"] < minEdge.Properties.Attributes["id"]) && !removedEdges[edge.Source][edge.Target] {
-						minEdge = edge
-					}
+			for _, edge := range edges {
+				if edge.Properties.Attributes["label"] == "ao" && (minEdge.Source == "" || edge.Properties.Attributes["id"] < minEdge.Properties.Attributes["id"]) && !removedEdges[edge.Source][edge.Target] {
+					minEdge = edge
 				}
 			}
 
@@ -379,11 +426,11 @@ func (r SemidirectECRO) topologicalSort() []communication.Operation {
 		}
 
 		// Add minimum vertex to topological order and "remove" it from the graph
-		order = append(order, minVertex.Op)
-		removedVertices[opHashSemiECRO(minVertex)] = true
+		order = append(order, minVertex)
+		removedVertices[opHash(minVertex)] = true
 
 		// If all vertices are "removed", we are done
-		if len(order) == len(g) {
+		if len(order) == len(vertices) {
 			break
 		}
 	}
@@ -404,11 +451,10 @@ func (r *SemidirectECRO) addEdges(op communication.Operation) bool {
 		opHash := opHash(op)
 
 		if cmp == communication.Ancestor && !r.Data.Commutes(op, vertex.Op) {
-			isSafe = false
 			r.ECROLog.AddEdge(vertexHash, opHash, graph.EdgeAttributes(map[string]string{"label": "hb", "id": vertexHash + opHash}))
 		} else if cmp == communication.Concurrent && !r.Data.Commutes(op, vertex.Op) {
-			isSafe = false
 			if r.Data.Order(op, vertex.Op) {
+				isSafe = false
 				r.ECROLog.AddEdge(opHash, vertexHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": opHash + vertexHash}))
 			} else if r.Data.Order(vertex.Op, op) {
 				r.ECROLog.AddEdge(vertexHash, opHash, graph.EdgeAttributes(map[string]string{"label": "ao", "id": vertexHash + opHash}))

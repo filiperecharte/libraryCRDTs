@@ -56,3 +56,4 @@ func NewAddWinsReplica(id string, channels map[string]chan any, delay int) *repl
 
 	return replica.NewReplica(id, c, channels, delay)
 }
+

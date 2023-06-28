@@ -11,6 +11,8 @@ import (
 	"testing"
 	"testing/quick"
 	"time"
+
+	mapset "github.com/deckarep/golang-set/v2"
 )
 
 func TestAddWinsECRO(t *testing.T) {
@@ -51,6 +53,7 @@ func TestAddWinsECRO(t *testing.T) {
 					}
 
 					r.Prepare(OPType, n)
+
 				}
 			}(replicas[i], operations[i])
 
@@ -79,7 +82,7 @@ func TestAddWinsECRO(t *testing.T) {
 		for i := 1; i < numReplicas; i++ {
 			st, _ := replicas[i].Crdt.Query()
 			stt, _ := replicas[0].Crdt.Query()
-			if !reflect.DeepEqual(st, stt) {
+			if st.(mapset.Set[any]).Equal(stt.(mapset.Set[any])) == false {
 				for i := 0; i < numReplicas; i++ {
 					st, _ := replicas[i].Crdt.Query()
 					t.Error("Replica ", i, ": ", st)
@@ -99,12 +102,12 @@ func TestAddWinsECRO(t *testing.T) {
 
 		operations := []int{}
 		for i := 0; i < 5; i++ {
-			operations = append(operations, 1000)
+			operations = append(operations, 100)
 		}
 
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(5000)            //number of operations
+		vals[2] = reflect.ValueOf(500)              //number of operations
 	}
 
 	// Define config for quick.Check

@@ -4,6 +4,7 @@ import (
 	"library/packages/communication"
 	"library/packages/middleware"
 	"library/packages/utils"
+	"log"
 	_ "net/http/pprof"
 	"os"
 	"sync"
@@ -72,7 +73,7 @@ func (r *Replica) Quit() {
 // Broadcasts a message by incrementing the replica's own entry in the version vector
 // and enqueuing the message with the updated version vector to the middleware process.
 func (r *Replica) TCBcast(msg communication.Message) {
-	//log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
+	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 	r.middleware.Tcbcast <- msg
 }
 
@@ -87,7 +88,7 @@ func (r *Replica) dequeue() {
 		default:
 			msg := <-r.middleware.DeliverCausal
 			if msg.Type == communication.DLV {
-				//log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
+				log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 				r.prepareLock.Lock()
 				//if msg.OriginID != r.id {
 				t := msg.Version.FindTicks(msg.OriginID)
@@ -96,7 +97,7 @@ func (r *Replica) dequeue() {
 				r.Crdt.Effect(msg.Operation)
 				r.prepareLock.Unlock()
 			} else if msg.Type == communication.STB {
-				//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+				log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 				r.Crdt.Stabilize(msg.Operation)
 			}
 		}

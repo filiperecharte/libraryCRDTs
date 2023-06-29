@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"log"
 	"strconv"
 	"sync"
 
@@ -87,7 +88,6 @@ func (r *SemidirectECRO) Effect(op communication.Operation) {
 	if utils.ContainsString(r.Data.ECROOps(), op.Type) {
 		ecroOp := ECROOp{op, []communication.Operation{}}
 		r.ECROLog.AddVertex(ecroOp, graph.VertexAttribute("label", opHashSemiECRO(ecroOp)+" "+op.Type+" "+op.Version.ReturnVCString()))
-
 		//checks if op respects arbitration order
 		if r.addEdges(op) {
 			r.Sorted_ops = append(r.Sorted_ops, op)
@@ -133,10 +133,8 @@ func (r *SemidirectECRO) Effect(op communication.Operation) {
 
 	if r.hasConcurrentRem(ecroNewOP) {
 		//add operation to unstable state
-		r.Sorted_ops = append(r.Sorted_ops, ecroNewOP)
 		r.Unstable_st = r.Data.Apply(r.Unstable_st, []communication.Operation{ecroNewOP})
 	} else {
-		r.Sorted_ops = r.incTopologicalSort(r.Sorted_ops, op)
 		r.Unstable_st = r.Data.Apply(r.Stable_st, r.Sorted_ops)
 	}
 
@@ -326,23 +324,15 @@ func (r *SemidirectECRO) incTopologicalSort(topoSort []communication.Operation, 
 
 	x := topoSort[0]
 
-	if x.Version.Compare(u.Version) == communication.Descendant {
+	if x.Version.Compare(u.Version) == communication.Descendant && !r.Data.Commutes(x, u) {
 		return append([]communication.Operation{x}, r.incTopologicalSort(topoSort[1:], u)...)
 
-	} else if r.Data.Order(x, u) {
-		isCausalDesc := false
-		for _, y := range topoSort {
-			if y.Version.Compare(x.Version) == communication.Descendant {
-				isCausalDesc = true
-			}
-		}
-		if !isCausalDesc {
-			return append([]communication.Operation{x}, r.incTopologicalSort(topoSort[1:], u)...)
-		}
+	} else if r.Data.Order(x, u) && !r.Data.Commutes(x, u) {
+		return append([]communication.Operation{x}, r.incTopologicalSort(topoSort[1:], u)...)
 	} else {
 		isLess := true
 		for _, y := range topoSort {
-			if !(r.Data.Order(u, y)) {
+			if !(r.Data.Order(u, y) && !r.Data.Commutes(y, u)) {
 				isLess = false
 			}
 		}
@@ -397,16 +387,26 @@ func (r SemidirectECRO) topologicalSort(vertices []communication.Operation) []co
 		}
 
 		// Find minimum vertex
-		minVertex := communication.Operation{Type: ""}
+		minVertex := communication.Operation{}
 
+		log.Println("INDEGREE", inDegree)
+		log.Println("REMOVED VERTICES", removedVertices)
+		log.Println("EDGES", edges)
 		for vertex, degree := range inDegree {
+			log.Println("VERTEX", vertex, degree, removedVertices[vertex])
 			if degree == 0 && !removedVertices[vertex] {
 				if minVertex.Type == "" || vertex < opHash(minVertex) {
+					log.Println("MIN VERTEX", vertex)
 					minV, _ := r.ECROLog.Vertex(vertex)
+					log.Println("MIN V", minV)
 					minVertex = minV.Op
+					log.Println("MIN VERTEXx", minVertex)
 				}
 			}
+			log.Println("MIN VERTEXxx1", minVertex)
 		}
+
+		log.Println("MIN VERTEXxxxx", minVertex)
 
 		// If no minimum vertex found, there is a cycle
 		if minVertex.Type == "" {
@@ -424,6 +424,13 @@ func (r SemidirectECRO) topologicalSort(vertices []communication.Operation) []co
 			removedEdges[minEdge.Source][minEdge.Target] = true
 			continue
 		}
+
+		l := []string{}
+		for _, y := range order {
+			l = append(l, opHash(y))
+		}
+
+		log.Println("ORDER TOPOLOGICAL SORT", l)
 
 		// Add minimum vertex to topological order and "remove" it from the graph
 		order = append(order, minVertex)
@@ -467,7 +474,7 @@ func (r *SemidirectECRO) addEdges(op communication.Operation) bool {
 
 // creates hash for operation
 func opHashSemiECRO(op ECROOp) string {
-	return op.Op.OriginID + strconv.FormatUint(op.Op.Version.Sum(), 10)
+	return strconv.FormatUint(op.Op.Version.Sum(), 10) + op.Op.OriginID
 }
 
 // update vertex of the graph by removing all edges that have the operation as target or source and then removing the vertex and adding it again

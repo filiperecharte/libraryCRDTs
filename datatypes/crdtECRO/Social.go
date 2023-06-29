@@ -140,7 +140,10 @@ func (s Social) ECROOps() []string {
 // initialize RGA
 func NewSocialCRDTECROReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
-	r := crdt.NewSemidirectECRO(id, SocialState{}, &Social{})
+	r := crdt.NewSemidirectECRO(id, SocialState{
+		Friends:    [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
+		Requesters: [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
+	}, Social{id})
 
 	return replica.NewReplica(id, r, channels, delay)
 }

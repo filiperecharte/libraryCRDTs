@@ -1,8 +1,10 @@
 package test
 
 import (
-	"library/packages/communication"
-	datatypes "library/packages/datatypes/semidirect"
+	"library/packages/datatypes"
+	commutative "library/packages/datatypes/commutative"
+	crdtECRO "library/packages/datatypes/crdtECRO"
+	ecro "library/packages/datatypes/ecro"
 	"library/packages/replica"
 	"log"
 	"math/rand"
@@ -13,17 +15,14 @@ import (
 	"testing"
 	"testing/quick"
 	"time"
-
-	"github.com/jmcvetta/randutil"
 )
 
 // variable with the alphabet to generate random strings
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var lettersCRDTS = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func TestRGASEMI(t *testing.T) {
+func TestRGACRDTS(t *testing.T) {
 	// Define property to test
 	property := func(operations []int, numReplicas int, numOperations int) bool {
-
 		// Initialize channels
 		channels := map[string]chan interface{}{}
 		for i := 0; i < numReplicas; i++ {
@@ -32,9 +31,9 @@ func TestRGASEMI(t *testing.T) {
 
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
-		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i])
-		}
+		replicas[0] = crdtECRO.NewRGAReplica(strconv.Itoa(0), channels, numOperations-operations[0])
+		replicas[1] = ecro.NewRGAReplica(strconv.Itoa(1), channels, numOperations-operations[1])
+		replicas[2] = commutative.NewRGAReplica(strconv.Itoa(2), channels, numOperations-operations[2])
 
 		// Start a goroutine for each replica
 		var wg sync.WaitGroup
@@ -47,13 +46,14 @@ func TestRGASEMI(t *testing.T) {
 
 				for j := 0; j < operations; j++ {
 					//choose a predecessor or a vertex to remove randomly from query
-					v := generateRandomVertexSEMI(*r)
+					rgaState, _ := r.Crdt.Query()
+					v := rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
 
 					//choose random leter to add
-					value := letters[rand.Intn(len(letters))]
+					value := lettersCRDTS[rand.Intn(len(lettersCRDTS))]
 
 					//choose randomly if it is an add or remove operation
-					OPType := "Add"
+					OPType := ""
 					if rand.Intn(2) == 0 {
 						OPType = "Add"
 					} else {
@@ -70,8 +70,6 @@ func TestRGASEMI(t *testing.T) {
 					}
 
 					r.Prepare(OPType, OPValue)
-
-					//time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
 
 				}
 
@@ -94,6 +92,9 @@ func TestRGASEMI(t *testing.T) {
 			}
 		}
 
+		log.Println("EFFECT OPS: ", replicas[0].Crdt.NumOps())
+		log.Println("STABILIZED OPS: ", replicas[0].Crdt.NumSOps())
+
 		//Check that all replicas have the same state
 		for i := 1; i < numReplicas; i++ {
 			st, _ := replicas[i].Crdt.Query()
@@ -115,13 +116,15 @@ func TestRGASEMI(t *testing.T) {
 
 	// Define generator to limit input size
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
+
 		operations := []int{}
-		for i := 0; i < 2; i++ {
-			operations = append(operations, 40)
+		for i := 0; i < 3; i++ {
+			operations = append(operations, 10)
 		}
+
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(80)              //number of operations
+		vals[2] = reflect.ValueOf(30)              //number of operations
 	}
 
 	// Define config for quick.Check
@@ -135,29 +138,4 @@ func TestRGASEMI(t *testing.T) {
 	if err := quick.Check(property, config); err != nil {
 		t.Error(err)
 	}
-}
-
-func generateRandomVertexSEMI(r replica.Replica) datatypes.Vertex {
-	rgaState, rgaDeletedState := r.Crdt.Query()
-
-	v := datatypes.Vertex{}
-	if len(rgaDeletedState.([]communication.Operation)) != 0 {
-		v = rgaDeletedState.([]communication.Operation)[rand.Intn(len(rgaDeletedState.([]communication.Operation)))].Value.(datatypes.RGAOpValue).V
-	} else {
-		v = rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
-	}
-
-	choices := make([]randutil.Choice, 0, 2)
-	choices = append(choices, randutil.Choice{Weight: 2, Item: rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]})
-	choices = append(choices, randutil.Choice{
-		Weight: 5,
-		Item:   v,
-	})
-
-	result, err := randutil.WeightedChoice(choices)
-	if err != nil {
-		panic(err)
-	}
-
-	return result.Item.(datatypes.Vertex)
 }

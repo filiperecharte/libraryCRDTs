@@ -256,7 +256,7 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 
 	mw.Min.Lock()
 	for keyMin, _ := range mw.Min.m {
-		if keyMin == j {
+		//if keyMin == j {
 			min := mw.Observed.GetTick(j, keyMin)
 			minRow := keyMin
 
@@ -272,7 +272,7 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 			mw.Observed.Unlock()
 			newStableVersion.Set(keyMin, min)
 			mw.Min.m[keyMin] = minRow
-		}
+		//}
 	}
 	mw.Min.Unlock()
 	return newStableVersion

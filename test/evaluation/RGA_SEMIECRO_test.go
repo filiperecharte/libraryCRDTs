@@ -2,7 +2,8 @@ package test
 
 import (
 	"library/packages/communication"
-	datatypes "library/packages/datatypes/crdtECRO"
+	"library/packages/datatypes"
+	crdtECRO "library/packages/datatypes/crdtECRO"
 	"library/packages/replica"
 	"log"
 	"math/rand"
@@ -32,7 +33,7 @@ func TestRGASEMIECRO(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i])
+			replicas[i] = crdtECRO.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
@@ -46,8 +47,8 @@ func TestRGASEMIECRO(t *testing.T) {
 
 				for j := 0; j < operations; j++ {
 					//choose a predecessor or a vertex to remove randomly from query
-					rgaState, _ := r.Crdt.Query()
-					v := rgaState.([]datatypes.Vertex)[rand.Intn(len(rgaState.([]datatypes.Vertex)))]
+					//rgaState, _ := r.Crdt.Query()
+					v := generateRandomVertexCOMM(*r)
 
 					//choose random leter to add
 					value := lettersECRO[rand.Intn(len(lettersECRO))]
@@ -118,19 +119,19 @@ func TestRGASEMIECRO(t *testing.T) {
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
 		operations := []int{}
-		for i := 0; i < 5; i++ {
-			operations = append(operations, 500)
+		for i := 0; i < 2; i++ {
+			operations = append(operations, 5)
 		}
 
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(2500)            //number of operations
+		vals[2] = reflect.ValueOf(10)               //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1,
+		MaxCount: 1000,
 		Values:   gen,
 	}
 

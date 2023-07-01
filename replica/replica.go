@@ -88,17 +88,17 @@ func (r *Replica) dequeue() {
 		default:
 			msg := <-r.middleware.DeliverCausal
 			if msg.Type == communication.DLV {
-				log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 				r.prepareLock.Lock()
-				//if msg.OriginID != r.id {
+				log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 				t := msg.Version.FindTicks(msg.OriginID)
 				r.VersionVector.Set(msg.OriginID, t)
-				//}
 				r.Crdt.Effect(msg.Operation)
 				r.prepareLock.Unlock()
 			} else if msg.Type == communication.STB {
+				r.prepareLock.Lock()
 				log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 				r.Crdt.Stabilize(msg.Operation)
+				r.prepareLock.Unlock()
 			}
 		}
 	}

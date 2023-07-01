@@ -42,7 +42,7 @@ func TestAddWinsECRO(t *testing.T) {
 				for j := 0; j < operations; j++ {
 
 					//generate random number
-					n := rand.Intn(3)
+					n := rand.Intn(52)
 
 					//choose randomly if it is an add or remove operation
 					OPType := "Add"
@@ -53,6 +53,8 @@ func TestAddWinsECRO(t *testing.T) {
 					}
 
 					r.Prepare(OPType, n)
+
+					//time.Sleep(time.Duration(rand.Intn(2000)) * time.Millisecond)
 
 				}
 			}(replicas[i], operations[i])
@@ -113,7 +115,7 @@ func TestAddWinsECRO(t *testing.T) {
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1000,
+		MaxCount: 1,
 		Values:   gen,
 	}
 

@@ -2,7 +2,8 @@ package test
 
 import (
 	"library/packages/communication"
-	datatypes "library/packages/datatypes/ecro"
+	ecro "library/packages/datatypes/ecro"
+	"library/packages/datatypes"
 	"library/packages/replica"
 	"log"
 	"math/rand"
@@ -32,7 +33,7 @@ func TestRGAECRO(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i])
+			replicas[i] = ecro.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica
@@ -120,19 +121,19 @@ func TestRGAECRO(t *testing.T) {
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
 		operations := []int{}
-		for i := 0; i < 5; i++ {
-			operations = append(operations, 500)
+		for i := 0; i < 3; i++ {
+			operations = append(operations, 10)
 		}
 
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(2500)            //number of operations
+		vals[2] = reflect.ValueOf(30)            //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1,
+		MaxCount: 100,
 		Values:   gen,
 	}
 

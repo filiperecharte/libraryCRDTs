@@ -2,7 +2,8 @@ package test
 
 import (
 	"library/packages/communication"
-	datatypes "library/packages/datatypes/commutative"
+	comm "library/packages/datatypes/commutative"
+	"library/packages/datatypes"
 	"library/packages/replica"
 	"log"
 	"math/rand"
@@ -32,7 +33,7 @@ func TestRGACOMM(t *testing.T) {
 		// Initialize replicas
 		replicas := make([]*replica.Replica, numReplicas)
 		for i := 0; i < numReplicas; i++ {
-			replicas[i] = datatypes.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i])
+			replicas[i] = comm.NewRGAReplica(strconv.Itoa(i), channels, numOperations-operations[i])
 		}
 
 		// Start a goroutine for each replica

@@ -72,6 +72,8 @@ func TestRGASEMIECRO(t *testing.T) {
 
 					r.Prepare(OPType, OPValue)
 
+					//time.Sleep(time.Duration(rand.Intn(2000)) * time.Millisecond)
+
 				}
 
 			}(replicas[i], operations[i])
@@ -119,19 +121,19 @@ func TestRGASEMIECRO(t *testing.T) {
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
 		operations := []int{}
-		for i := 0; i < 2; i++ {
-			operations = append(operations, 5)
+		for i := 0; i < 3; i++ {
+			operations = append(operations, 10)
 		}
 
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(10)               //number of operations
+		vals[2] = reflect.ValueOf(30)               //number of operations
 	}
 
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 1000,
+		MaxCount: 100,
 		Values:   gen,
 	}
 

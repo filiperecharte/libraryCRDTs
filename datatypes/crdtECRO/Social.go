@@ -113,9 +113,9 @@ func (s Social) ArbitrationOrderMain(op1 communication.Operation, op2 communicat
 }
 
 func (s Social) RepairRight(op1 communication.Operation, op2 communication.Operation, state any) communication.Operation {
-	if op1.Type == "request" && op2.Type == "accept" {
-		return communication.Operation{"accept", SocialOpValue{From: -1, To: -1}, op2.Version, op2.OriginID}
-	}
+	// if op1.Type == "reject" && op2.Type == "breakup" {
+	// 	return communication.Operation{"accept", SocialOpValue{From: -1, To: -1}, op2.Version, op2.OriginID}
+	// }
 	return op2
 }
 

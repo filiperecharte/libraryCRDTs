@@ -41,6 +41,7 @@ type Middleware struct {
 	DeliveredVersion communication.VClock        // last delivered vector clock
 	ReceivedVersion  communication.VClock        // last received vector clock
 	Tcbcast          chan communication.Message  // channel to receive messages from replica
+	TcbcastEdges     chan communication.Message  // channel to receive messages from replica
 	DeliverCausal    chan communication.Message  // channel to causal deliver messages to replica
 	DQ               []communication.Message     // Delivery queue to add messages that dont have causal predecessors yet
 	Observed         VClocks                     // vector versions of observed universe
@@ -67,6 +68,7 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 		DeliveredVersion: communication.InitVClock(ids),
 		ReceivedVersion:  communication.InitVClock(ids),
 		Tcbcast:          make(chan communication.Message),
+		TcbcastEdges:     make(chan communication.Message),
 		DeliverCausal:    make(chan communication.Message),
 		Observed:         InitVClocks(ids),
 		StableVersion:    communication.InitVClock(ids),
@@ -83,6 +85,7 @@ func NewMiddleware(id string, ids []string, channels map[string]chan interface{}
 	}
 
 	go mw.dequeue()
+	go mw.dequeueEdges()
 	go mw.receive()
 
 	return mw
@@ -95,6 +98,20 @@ func (mw *Middleware) Quit() {
 	mw.quit <- true
 }
 
+func (mw *Middleware) dequeueEdges() {
+	for {
+		select {
+		case <-mw.quit:
+			return
+		default:
+			msg := <-mw.TcbcastEdges
+			if msg.Version.RWMutex != nil {
+				mw.broadcast(msg)
+			}
+		}
+	}
+}
+
 // run middleware by waiting for communication.Messages on Tcbcast channel
 func (mw *Middleware) dequeue() {
 	for {
@@ -104,9 +121,13 @@ func (mw *Middleware) dequeue() {
 		default:
 			msg := <-mw.Tcbcast
 			if msg.Version.RWMutex != nil {
-				mw.DeliveredVersion.Tick(mw.replica)
-				mw.updatestability(msg)
-				mw.broadcast(msg)
+				if msg.MSGType == communication.EDG {
+					mw.broadcast(msg)
+				} else {
+					mw.DeliveredVersion.Tick(mw.replica)
+					mw.updatestability(msg)
+					mw.broadcast(msg)
+				}
 			}
 		}
 	}
@@ -137,6 +158,11 @@ func (mw *Middleware) receive() {
 			m, ok := m1.(communication.Message)
 
 			if !ok {
+				continue
+			}
+
+			if m1.(communication.Message).MSGType == communication.EDG {
+				mw.DeliverCausal <- m1.(communication.Message)
 				continue
 			}
 
@@ -257,21 +283,21 @@ func (mw *Middleware) calculateStableVersion(j string) communication.VClock {
 	mw.Min.Lock()
 	for keyMin, _ := range mw.Min.m {
 		//if keyMin == j {
-			min := mw.Observed.GetTick(j, keyMin)
-			minRow := keyMin
+		min := mw.Observed.GetTick(j, keyMin)
+		minRow := keyMin
 
-			obs := mw.Observed.GetMap()
+		obs := mw.Observed.GetMap()
 
-			mw.Observed.Lock()
-			for keyObs, _ := range obs {
-				if mw.Observed.m[keyObs].FindTicks(keyMin) < min {
-					min = mw.Observed.m[keyObs].FindTicks(keyMin)
-					minRow = keyObs
-				}
+		mw.Observed.Lock()
+		for keyObs, _ := range obs {
+			if mw.Observed.m[keyObs].FindTicks(keyMin) < min {
+				min = mw.Observed.m[keyObs].FindTicks(keyMin)
+				minRow = keyObs
 			}
-			mw.Observed.Unlock()
-			newStableVersion.Set(keyMin, min)
-			mw.Min.m[keyMin] = minRow
+		}
+		mw.Observed.Unlock()
+		newStableVersion.Set(keyMin, min)
+		mw.Min.m[keyMin] = minRow
 		//}
 	}
 	mw.Min.Unlock()

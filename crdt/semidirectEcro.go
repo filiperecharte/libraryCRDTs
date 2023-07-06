@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"log"
 	"strconv"
 	"sync"
 
@@ -82,6 +83,7 @@ func (r *SemidirectECRO) Effect(op communication.Operation) {
 	defer r.effectLock.Unlock()
 
 	r.N_Ops++
+	log.Println(r.Id, r.N_Ops)
 
 	//------------------------- ECRO ------------------------
 
@@ -189,6 +191,10 @@ func (r *SemidirectECRO) Stabilize(op communication.Operation) {
 	r.SemidirectLog = append(r.SemidirectLog[:io], r.SemidirectLog[io+1:]...)
 }
 
+func (r *SemidirectECRO) RemovedEdge(op communication.Operation) {
+	//ignore
+}
+
 func (r *SemidirectECRO) Query() (any, any) {
 	//apply all non main operations
 	r.effectLock.Lock()
@@ -208,7 +214,7 @@ func (r *SemidirectECRO) NumSOps() uint64 {
 
 func (r *SemidirectECRO) repairRight(op communication.Operation) communication.Operation {
 	//find operations that is concurrent with op
-	tempOp := communication.Operation{op.Type, op.Value, op.Version, op.OriginID}
+	tempOp := communication.Operation{op.Type, op.Value, op.Version.Copy(), op.OriginID}
 	for _, o := range r.SemidirectLog {
 		if o.Version.Compare(op.Version) == communication.Concurrent {
 			tempOp = r.Data.RepairRight(o, tempOp, r.Stable_st)

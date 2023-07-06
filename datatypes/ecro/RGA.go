@@ -25,7 +25,7 @@ func (r RGA) Apply(state any, operations []communication.Operation) any {
 
 			// if predecessor vertex is not found, insert on root
 			if predecessorIdx == -1 {
-				predecessorIdx = 0
+				continue
 			}
 
 			newVertices := append(stCpy[:predecessorIdx+1], append([]datatypes.Vertex{newVertex}, stCpy[predecessorIdx+1:]...)...)
@@ -80,9 +80,13 @@ func (r RGA) Commutes(op1 communication.Operation, op2 communication.Operation) 
 // initialize RGA
 func NewRGAReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
-	r := crdt.NewEcroCRDT(id, []datatypes.Vertex{{communication.NewVClockFromMap(map[string]uint64{}), "", id}}, RGA{id})
+	r := crdt.NewEcroCRDT(id, []datatypes.Vertex{{communication.NewVClockFromMap(map[string]uint64{}), "", id}}, RGA{id}, replica.Replica{})
 
-	return replica.NewReplica(id, r, channels, delay)
+	replica := replica.NewReplica(id, r, channels, delay)
+
+	r.SetReplica(replica)
+
+	return replica
 }
 
 func indexOfVPtr(vertex datatypes.Vertex, vertices []datatypes.Vertex) int {

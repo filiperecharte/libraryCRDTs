@@ -8,17 +8,18 @@ const (
 	MSG int = 0
 	DLV int = 1
 	STB int = 2
+	EDG int = 3
 )
 
 type Message struct {
-	Type      int // type of message
+	MSGType   int // type of message
 	Operation     // operation submitted by user
 }
 
 // NewMessage creates a new message with the given value and version vector
 func NewMessage(tp int, operation string, value any, version VClock, originID string) Message {
 	return Message{
-		Type:      tp,
+		MSGType:   tp,
 		Operation: Operation{Type: operation, Value: value, Version: version, OriginID: originID},
 	}
 }
@@ -31,7 +32,7 @@ func (e *Message) CompareTo(other *Message) Condition {
 
 // set type of message
 func (e *Message) SetType(tp int) {
-	e.Type = tp
+	e.MSGType = tp
 }
 
 // Check if two messages are equal by comparing their version, value, timestamp and origin

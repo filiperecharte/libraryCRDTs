@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"log"
 )
 
 type CommutativeStableDataI interface {
@@ -26,11 +27,16 @@ type CommutativeStableCRDT struct {
 func (c *CommutativeStableCRDT) Effect(op communication.Operation) {
 	c.Stable_st = c.Data.Apply(c.Stable_st, []communication.Operation{op})
 	c.N_Ops++
+	log.Println(c.N_Ops)
 }
 
 func (c *CommutativeStableCRDT) Stabilize(op communication.Operation) {
 	c.Stable_st = c.Data.Stabilize(c.Stable_st, op)
 	c.S_Ops++
+}
+
+func (c *CommutativeStableCRDT) RemovedEdge(op communication.Operation) {
+	//ignore
 }
 
 func (c *CommutativeStableCRDT) Query() (any, any) {

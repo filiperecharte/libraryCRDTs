@@ -132,9 +132,13 @@ func NewEgameReplica(id string, channels map[string]chan any, delay int) *replic
 		Tournaments: mapset.NewSet[any](),
 		Players:     mapset.NewSet[any](),
 		Enrolled:    mapset.NewSet[Enroll](),
-	}, Egame{id})
+	}, Egame{id}, replica.Replica{})
 
-	return replica.NewReplica(id, c, channels, delay)
+	r := replica.NewReplica(id, c, channels, delay)
+
+	c.SetReplica(r)
+
+	return r
 }
 
 // compares if two SocialState are equal for test reasons

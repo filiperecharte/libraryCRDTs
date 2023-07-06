@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"log"
 )
 
 // all updates are reparable
@@ -35,6 +36,7 @@ func (r *SemidirectCRDT) Effect(op communication.Operation) {
 		r.Unstable_operations = append(r.Unstable_operations, op)
 	}
 	r.N_Ops++
+	log.Println(r.Id, r.N_Ops)
 }
 
 func (r *SemidirectCRDT) Stabilize(op communication.Operation) {
@@ -45,6 +47,10 @@ func (r *SemidirectCRDT) Stabilize(op communication.Operation) {
 		}
 	}
 	r.S_Ops++
+}
+
+func (r *SemidirectCRDT) RemovedEdge(op communication.Operation) {
+	//ignore
 }
 
 func (r *SemidirectCRDT) Query() (any, any) {

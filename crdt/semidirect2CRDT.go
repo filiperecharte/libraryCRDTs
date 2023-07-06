@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"library/packages/communication"
+	"log"
 	"sync"
 )
 
@@ -65,6 +66,7 @@ func (r *Semidirect2CRDT) Effect(op communication.Operation) {
 	defer r.effectLock.Unlock()
 
 	r.N_Ops++
+	log.Println(r.Id, r.N_Ops)
 
 	if r.Data.MainOp() != op.Type {
 		r.NonMain_operations = append(r.NonMain_operations, NonMainOp{op, []communication.Operation{}})
@@ -139,6 +141,10 @@ func (r *Semidirect2CRDT) Stabilize(op communication.Operation) {
 
 	//remove operation from unstable operations
 	r.Unstable_operations = append(r.Unstable_operations[:io], r.Unstable_operations[io+1:]...)
+}
+
+func (r *Semidirect2CRDT) RemovedEdge(op communication.Operation) {
+	//ignore
 }
 
 func (r *Semidirect2CRDT) Query() (any, any) {

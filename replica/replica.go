@@ -4,10 +4,10 @@ import (
 	"library/packages/communication"
 	"library/packages/middleware"
 	"library/packages/utils"
-	"log"
 	_ "net/http/pprof"
-	"os"
 	"sync"
+
+	"github.com/dominikbraun/graph"
 )
 
 //type ReplicaID string
@@ -23,6 +23,8 @@ type CrdtI interface {
 	// Query made by a client to a replica that returns the current state of the CRDT
 	Query() (any, any)
 
+	RemovedEdge(msg communication.Operation)
+
 	// Returns the number of operations applied to the CRDT for testing purposes
 	NumOps() uint64
 
@@ -37,8 +39,6 @@ type Replica struct {
 	middleware    *middleware.Middleware
 	VersionVector communication.VClock
 	prepareLock   *sync.RWMutex
-
-	f *os.File
 
 	quit chan bool
 }
@@ -73,8 +73,11 @@ func (r *Replica) Quit() {
 // Broadcasts a message by incrementing the replica's own entry in the version vector
 // and enqueuing the message with the updated version vector to the middleware process.
 func (r *Replica) TCBcast(msg communication.Message) {
-	log.Println("[ REPLICA", r.id, "] BROADCASTED", msg)
 	r.middleware.Tcbcast <- msg
+}
+
+func (r *Replica) TCBcastEdges(msg communication.Message) {
+	r.middleware.TcbcastEdges <- msg
 }
 
 // Dequeues a message that is ready to be delivered to the replica process.
@@ -83,21 +86,27 @@ func (r *Replica) dequeue() {
 	for {
 		select {
 		case <-r.quit:
-			log.Println("[ REPLICA", r.id, "] QUITTING")
+			//log.Println("[ REPLICA", r.id, "] QUITTING")
 			return
 		default:
+			//log.Println("[ REPLICA", r.id, "] WAITING FOR MESSAGE")
 			msg := <-r.middleware.DeliverCausal
-			if msg.Type == communication.DLV {
+			if msg.MSGType == communication.DLV {
 				r.prepareLock.Lock()
-				log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
+				//log.Println("[ REPLICA", r.id, "] RECEIVED ", msg, " FROM ", msg.OriginID)
 				t := msg.Version.FindTicks(msg.OriginID)
 				r.VersionVector.Set(msg.OriginID, t)
 				r.Crdt.Effect(msg.Operation)
 				r.prepareLock.Unlock()
-			} else if msg.Type == communication.STB {
+			} else if msg.MSGType == communication.STB {
 				r.prepareLock.Lock()
-				log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
+				//log.Println("[ REPLICA", r.id, "] STABILIZED ", msg, " FROM ", msg.OriginID)
 				r.Crdt.Stabilize(msg.Operation)
+				r.prepareLock.Unlock()
+			} else if msg.MSGType == communication.EDG {
+				r.prepareLock.Lock()
+				//log.Println("[ REPLICA", r.id, "] DISCARD ", msg, " FROM ", msg.OriginID)
+				r.Crdt.RemovedEdge(msg.Operation)
 				r.prepareLock.Unlock()
 			}
 		}
@@ -118,6 +127,20 @@ func (r *Replica) Prepare(operationType string, operationValue any) communicatio
 	r.TCBcast(msg)
 
 	return op //for testing purposes
+}
+
+func (r *Replica) PropagateDiscarededEdges(edges map[string]graph.Edge[string]) {
+	//deep copy edges
+	edgesCopy := make(map[string]graph.Edge[string])
+
+	for k, v := range edges {
+		edgesCopy[k] = v
+	}
+
+	op := communication.Operation{Type: "", Value: edgesCopy, Version: communication.NewVClock(), OriginID: r.id}
+	msg := communication.NewMessage(communication.EDG, op.Type, op.Value, op.Version, op.OriginID)
+
+	r.TCBcastEdges(msg)
 }
 
 func (r *Replica) GetID() string {

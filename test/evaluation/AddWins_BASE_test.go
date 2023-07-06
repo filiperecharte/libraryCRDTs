@@ -51,6 +51,9 @@ func TestAddWinsBASE(t *testing.T) {
 					}
 
 					r.Prepare(OPType, n)
+
+					time.Sleep(time.Duration(rand.Intn(2000)) * time.Millisecond)
+					
 				}
 			}(replicas[i], operations[i])
 
@@ -103,13 +106,13 @@ func TestAddWinsBASE(t *testing.T) {
 	gen := func(vals []reflect.Value, rand *rand.Rand) {
 
 		operations := []int{}
-		for i := 0; i < 5; i++ {
-			operations = append(operations, 500)
+		for i := 0; i < 50; i++ {
+			operations = append(operations, 40)
 		}
 
 		vals[0] = reflect.ValueOf(operations)      //number of operations for each replica
 		vals[1] = reflect.ValueOf(len(operations)) //number of replicas
-		vals[2] = reflect.ValueOf(2500)            //number of operations
+		vals[2] = reflect.ValueOf(2000)            //number of operations
 	}
 
 	// Define config for quick.Check

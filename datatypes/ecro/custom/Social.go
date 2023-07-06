@@ -114,9 +114,13 @@ func NewSocialReplica(id string, channels map[string]chan any, delay int) *repli
 	c := crdt.NewEcroCRDT(id, SocialState{
 		Friends:    [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
 		Requesters: [5]mapset.Set[any]{mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any](), mapset.NewSet[any]()},
-	}, Social{id})
+	}, Social{id}, replica.Replica{})
 
-	return replica.NewReplica(id, c, channels, delay)
+	r := replica.NewReplica(id, c, channels, delay)
+
+	c.SetReplica(r)
+
+	return r
 }
 
 // copy of socialstate

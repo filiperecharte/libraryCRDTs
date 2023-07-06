@@ -3,6 +3,7 @@ package crdt
 import (
 	"library/packages/communication"
 	"library/packages/replica"
+	"log"
 	"sync"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -33,6 +34,7 @@ func (c *AddWins) Effect(op communication.Operation) {
 		}
 	}
 	c.N_Ops++
+	log.Println(c.N_Ops)
 }
 
 func (c *AddWins) Stabilize(op communication.Operation) {
@@ -61,6 +63,9 @@ func (c *AddWins) NumOps() uint64 {
 
 func (c *AddWins) NumSOps() uint64 {
 	return c.S_Ops
+}
+
+func (c *AddWins) RemovedEdge(op communication.Operation) {
 }
 
 // initialize counter replica

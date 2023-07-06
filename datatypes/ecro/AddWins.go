@@ -52,8 +52,11 @@ func (a AddWins) Equals(op1 communication.Operation, op2 communication.Operation
 // initialize counter replica
 func NewAddWinsReplica(id string, channels map[string]chan any, delay int) *replica.Replica {
 
-	c := crdt.NewEcroCRDT(id, mapset.NewSet[any](), AddWins{})
+	c := crdt.NewEcroCRDT(id, mapset.NewSet[any](), AddWins{}, replica.Replica{})
 
-	return replica.NewReplica(id, c, channels, delay)
+	r := replica.NewReplica(id, c, channels, delay)
+
+	c.SetReplica(r)
+
+	return r
 }
-

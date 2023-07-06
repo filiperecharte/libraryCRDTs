@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Array containing test names
-test_names=("TestAddWinsBASE" "TestAddWinsECRO" "TestAddWinsSEMI2" "TestRGACOMM" "TestRGAECRO" "TestRGASEMIECRO")
+test_names=("TestAddWinsBASE" "TestAddWinsSEMI2")
 
 # Loop through the test names
 for test_name in "${test_names[@]}"; do

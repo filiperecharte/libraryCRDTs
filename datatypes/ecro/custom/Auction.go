@@ -106,9 +106,13 @@ func NewAuctionReplica(id string, channels map[string]chan any, delay int) *repl
 		Users:  mapset.NewSet[any](),
 		Bids:   mapset.NewSet[Bid](),
 		MaxBid: 0,
-	}, Auction{id})
+	}, Auction{id}, replica.Replica{})
 
-	return replica.NewReplica(id, c, channels, delay)
+	r := replica.NewReplica(id, c, channels, delay)
+
+	c.SetReplica(r)
+
+	return r
 }
 
 // deep copy state of auction

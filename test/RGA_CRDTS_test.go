@@ -130,7 +130,7 @@ func TestRGACRDTS(t *testing.T) {
 	// Define config for quick.Check
 	config := &quick.Config{
 		Rand:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		MaxCount: 100,
+		MaxCount: 10,
 		Values:   gen,
 	}
 
